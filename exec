@@ -1,0 +1,34 @@
+export NODE_NUM=20
+# NS_LOG=ndn-cxx.nfd.FLOOD:ndn.Producer   ./waf --run vanet-flood   >results/flood.log 2>&1
+NS_LOG=ndn-cxx.nfd.CODIE:ndn.Producer   ./waf --run vanet-codie  > results/codie.log 2>&1
+NS_LOG=ndn-cxx.nfd.PRFS:ndn.Producer    ./waf --run vanet-prfs  > results/prfs.log 2>&1
+NS_LOG=ndn-cxx.nfd.LSF:ndn.Producer     ./waf --run vanet-lsf  > results/lsf.log 2>&1
+python results/test.py 20
+
+export NODE_NUM=40
+# NS_LOG=ndn-cxx.nfd.FLOOD:ndn.Producer    ./waf --run vanet-flood   >results/flood.log 2>&1
+NS_LOG=ndn-cxx.nfd.CODIE:ndn.Producer    ./waf --run vanet-codie   >results/codie.log 2>&1
+NS_LOG=ndn-cxx.nfd.PRFS:ndn.Producer    ./waf --run vanet-prfs  > results/prfs.log 2>&1
+NS_LOG=ndn-cxx.nfd.LSF:ndn.Producer      ./waf --run vanet-lsf  > results/lsf.log 2>&1
+python results/test.py 40
+
+export NODE_NUM=60
+# NS_LOG=ndn-cxx.nfd.FLOOD:ndn.Producer   ./waf --run vanet-flood   >results/flood.log 2>&1
+NS_LOG=ndn-cxx.nfd.CODIE:ndn.Producer   ./waf --run vanet-codie   >results/codie.log 2>&1
+NS_LOG=ndn-cxx.nfd.PRFS:ndn.Producer    ./waf --run vanet-prfs  > results/prfs.log 2>&1
+NS_LOG=ndn-cxx.nfd.LSF:ndn.Producer     ./waf --run vanet-lsf  > results/lsf.log 2>&1
+python results/test.py 60
+
+export NODE_NUM=80
+# NS_LOG=ndn-cxx.nfd.FLOOD:ndn.Producer    ./waf --run vanet-flood   >results/flood.log 2>&1
+NS_LOG=ndn-cxx.nfd.CODIE:ndn.Producer    ./waf --run vanet-codie   >results/codie.log 2>&1
+NS_LOG=ndn-cxx.nfd.PRFS:ndn.Producer     ./waf --run vanet-prfs  > results/prfs.log 2>&1
+NS_LOG=ndn-cxx.nfd.LSF:ndn.Producer      ./waf --run vanet-lsf  > results/lsf.log 2>&1
+python results/test.py 80
+
+export NODE_NUM=100
+# NS_LOG=ndn-cxx.nfd.FLOOD:ndn.Producer   ./waf --run vanet-flood   >results/flood.log 2>&1
+NS_LOG=ndn-cxx.nfd.CODIE:ndn.Producer   ./waf --run vanet-codie   >results/codie.log 2>&1
+NS_LOG=ndn-cxx.nfd.PRFS:ndn.Producer    ./waf --run vanet-prfs  > results/prfs.log 2>&1
+NS_LOG=ndn-cxx.nfd.LSF:ndn.Producer     ./waf --run vanet-lsf  > results/lsf.log 2>&1
+python results/test.py 100
