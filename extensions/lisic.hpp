@@ -1,5 +1,5 @@
-#ifndef NFD_DAEMON_FW_VNDN_HPP
-#define NFD_DAEMON_FW_VNDN_HPP
+#ifndef NFD_DAEMON_FW_LISIC_HPP
+#define NFD_DAEMON_FW_LISIC_HPP
 
 #include "ns3/ndnSIM/NFD/daemon/fw/strategy.hpp"
 #include "ns3/ndnSIM/NFD/daemon/fw/process-nack-traits.hpp"
@@ -12,7 +12,7 @@
 
 namespace nfd{
 namespace fw{
-class VNDN : public Strategy, public ProcessNackTraits<VNDN>
+class LISIC : public Strategy, public ProcessNackTraits<LISIC>
 {
 struct m_tableEntry {
 	Name interestName;
@@ -23,7 +23,7 @@ struct m_tableEntry {
 };
 
 public:
-	explicit VNDN(Forwarder &forwarder, const Name &name = getStrategyName());
+	explicit LISIC(Forwarder &forwarder, const Name &name = getStrategyName());
 
 	static const Name &
 	getStrategyName();
@@ -50,7 +50,7 @@ public:
 				const Interest &interest);
 
 	/*查找WaitTable中是否已有相同的<Interest, Nonce>*/
-	std::vector<VNDN::m_tableEntry>::iterator
+	std::vector<LISIC::m_tableEntry>::iterator
 	findEntry(const Name &targetName, uint32_t targetNonce);
 
 	/*在WaitTable中添加新表项
@@ -62,10 +62,12 @@ public:
 	/**删除WaitTable中的某表项
 	*   当findEntry判断为真或收到相应Data包时触发
 	*/
-	// void
-	// deleteEntry(const Name &targetName, uint32_t targetNonce);
 	void
-	deleteEntry(std::vector<VNDN::m_tableEntry>::iterator it);
+	deleteEntry(std::vector<LISIC::m_tableEntry>::iterator it);
+
+     /*计算LET*/
+    double
+    caculateLET(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> revNode);
 
 	/* 计算等待转发的延迟时间*/
 	double
@@ -75,24 +77,7 @@ public:
 	void
 	cancelSend(Interest interest, ns3::EventId eventId);
 
-	// std::map<uint32_t, std::vector<int>> &
-	// getHOP()
-	// {
-	// 	return m_hop;
-	// }
-
-	// void
-	// setHopList(uint32_t nonce, std::map<uint32_t, std::vector<int>> &, std::map<uint32_t, std::vector<int>> &hop, int hopId, int next_hopId);
-
-	// void
-	// updateHopList(nfd::face::Face &inface, nfd::face::Face &outface, const Interest &interest);
-
-	// void
-	// getHopCounts(const Interest &interest,
-	// 			 ns3::Ptr<ns3::Node> node);
-
-private:
-	friend ProcessNackTraits<VNDN>;
+	friend ProcessNackTraits<LISIC>;
 	RetxSuppressionExponential m_retxSuppression;
 
 	PUBLIC_WITH_TESTS_ELSE_PRIVATE : static const time::milliseconds RETX_SUPPRESSION_INITIAL;
@@ -102,8 +87,7 @@ private:
 	Forwarder &m_forwarder;
 	ns3::NodeContainer m_nodes;
 	double m_Rth;
-	// std::map<uint32_t, std::vector<int>> m_hop;
-
+    double m_alpha; // Time scale factor
 	std::vector<m_tableEntry> m_waitTable;
 
 };

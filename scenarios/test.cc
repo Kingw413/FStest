@@ -80,9 +80,9 @@ namespace ns3
 		Ptr<ListPositionAllocator> positionAlloc =
 			CreateObject<ListPositionAllocator>();
 		positionAlloc->Add(Vector(0, 0, 0));
-		positionAlloc->Add(Vector(100, 0, 0));
-		positionAlloc->Add(Vector(200, 0, 0));
-		positionAlloc->Add(Vector(300, 0, 0));
+		positionAlloc->Add(Vector(40, 0, 0));
+		positionAlloc->Add(Vector(80, 0, 0));
+		positionAlloc->Add(Vector(120, 0, 0));
 
 		MobilityHelper mobility_STA;
 		mobility_STA.SetPositionAllocator(positionAlloc);
@@ -113,7 +113,7 @@ namespace ns3
 		ndnHelper.InstallAll();
 		std::cout << "Install stack\n";
 
-		ndn::StrategyChoiceHelper::InstallAll("/", "/localhost/nfd/strategy/vndn/%FD%01");
+		ndn::StrategyChoiceHelper::InstallAll("/", "/localhost/nfd/strategy/DIFS/%FD%01");
 
 		// Installing Consumer
 		ndn::AppHelper consumerHelper("ns3::ndn::ConsumerCbr");
@@ -126,8 +126,8 @@ namespace ns3
 		// consumerHelper.SetAttribute("s", StringValue("0.7"));
 		consumerHelper.SetPrefix("/ustc");
 		NodeContainer consumerContainer;
-		consumerContainer.Add(nodes[1]);
-		consumerContainer.Add(nodes[2]);
+		consumerContainer.Add(nodes[0]);
+		// consumerContainer.Add(nodes[2]);
 		consumerHelper.Install(consumerContainer);
 		std::cout << "Install consumer\n";
 
@@ -141,7 +141,7 @@ namespace ns3
 				  << " nodes and producers in " << producercontainer.GetN()
 				  << " nodes" << std::endl;
 
-		ndn::AppDelayTracer::Install(nodes[1], "results/delay_vndn.log");
+		ndn::AppDelayTracer::Install(nodes[0], "results/delay_vndn.log");
 		// ndn::CsTracer::InstallAll("results/cs_prfs.log", MilliSeconds(1000));
 
 		Simulator::Stop(Seconds(10));
