@@ -39,7 +39,7 @@ VNDN::VNDN(Forwarder &forwarder, const Name &name)
 const Name &
 VNDN::getStrategyName()
 {
-	static Name strategyName("/localhost/nfd/strategy/vndn/%FD%01");
+	static Name strategyName("/localhost/nfd/strategy/VNDN/%FD%01");
 	return strategyName;
 }
 
@@ -157,7 +157,7 @@ VNDN::caculateDeferTime(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> receiv
 	ns3::Ptr<ns3::MobilityModel> mobility1 = sendNode->GetObject<ns3::MobilityModel>();
 	ns3::Ptr<ns3::MobilityModel> mobility2 = receiveNode->GetObject<ns3::MobilityModel>();
 	double distance =  mobility2->GetDistanceFrom(mobility1);
-	double defer_time = 1/distance;
+	double defer_time = 1/(distance+0.0001);
 	return defer_time;
 }
 

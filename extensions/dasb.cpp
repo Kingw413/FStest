@@ -43,7 +43,7 @@ DASB::DASB(Forwarder &forwarder, const Name &name)
 const Name &
 DASB::getStrategyName()
 {
-	static Name strategyName("/localhost/nfd/strategy/dasb/%FD%01");
+	static Name strategyName("/localhost/nfd/strategy/DASB/%FD%01");
 	return strategyName;
 }
 

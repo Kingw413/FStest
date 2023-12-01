@@ -22,7 +22,7 @@ LISIC::LISIC(Forwarder &forwarder, const Name &name)
 	  m_retxSuppression(RETX_SUPPRESSION_INITIAL, RetxSuppressionExponential::DEFAULT_MULTIPLIER,
 						RETX_SUPPRESSION_MAX),
 	  m_forwarder(forwarder),
-	  m_nodes(ns3::NodeContainer::GetGlobal()), m_Rth(100), m_alpha(1e9)
+	  m_nodes(ns3::NodeContainer::GetGlobal()), m_Rth(100.0), m_alpha(1.0e9)
 {
 	ParsedInstanceName parsed = parseInstanceName(name);
 	if (!parsed.parameters.empty())
@@ -152,7 +152,7 @@ LISIC::caculateLET(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> revNode) {
     double n = mobility1->GetPosition().y - mobility2->GetPosition().y;
     double p = mobility1->GetVelocity().x - mobility2->GetVelocity().x;
     double q = mobility1->GetVelocity().y - mobility2->GetVelocity().y;
-    double let = -(m*p+n*q)+sqrt((pow(p,2)+pow(q,2))*pow(m_Rth,2) - pow(n*p-m*q, 2)) / (pow(p,2)+pow(q,2));
+    double let = -(m*p+n*q)+sqrt((pow(p,2)+pow(q,2))*pow(m_Rth,2) - pow(n*p-m*q, 2)) / (pow(p,2)+pow(q,2)+0.0001); // 避免分母为0
     return let;
 }
 
