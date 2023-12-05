@@ -76,7 +76,7 @@ public:
 
 	/* 计算等待转发的延迟时间*/
 	double
-	caculateDeferTime(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> receiveNode);
+	calculateDeferTime(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> receiveNode);
 
 	/*计算角度*/
     bool

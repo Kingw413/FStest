@@ -50,11 +50,6 @@ DASB::getStrategyName()
 void DASB::afterReceiveInterest(const FaceEndpoint &ingress, const Interest &interest,
 								const shared_ptr<pit::Entry> &pitEntry)
 {
-	RetxSuppressionResult suppression = m_retxSuppression.decidePerPitEntry(*pitEntry);
-	if (suppression == RetxSuppressionResult::SUPPRESS) {
-		NFD_LOG_DEBUG(interest << " from=" << ingress << " suppressed");
-		return;
-	}
 	const fib::Entry &fibEntry = this->lookupFib(*pitEntry);
 	const fib::NextHopList &nexthops = fibEntry.getNextHops();
 	auto it = nexthops.end();
@@ -91,7 +86,7 @@ void DASB::afterReceiveInterest(const FaceEndpoint &ingress, const Interest &int
             return;
 		}
 		NS_LOG_DEBUG("Wait to send " << interest << " from=" << ingress << " to=" << egress);
-		double deferTime = caculateDeferTime(sendNode, receiveNode);
+		double deferTime = calculateDeferTime(sendNode, receiveNode);
 		auto eventId = ns3::Simulator::Schedule(ns3::Seconds(deferTime), &DASB::doSendInterest, this, pitEntry, egress, ingress, interest);
 		this->addEntry(interest.getName(), interest.getNonce(), sendNode, ns3::Seconds(deferTime), eventId, 1);
 	}
@@ -154,7 +149,7 @@ void DASB::afterReceiveData(const shared_ptr<pit::Entry> &pitEntry,
         return;
 	}
     NS_LOG_DEBUG("Wait to send Data " << data << " from=" << ingress <<"to= "<<egress);
-	double deferTime = caculateDeferTime(sendNode, receiveNode);
+	double deferTime = calculateDeferTime(sendNode, receiveNode);
 	auto eventId = ns3::Simulator::Schedule(ns3::Seconds(deferTime), &DASB::doSendData, this, pitEntry, data, egress);
 	this->addEntry(data.getName(), 0, sendNode, ns3::Seconds(deferTime), eventId, 0);
 	this->sendData(pitEntry, data, egress);
@@ -208,7 +203,7 @@ DASB::deleteEntry(std::vector<DASB::m_tableEntry>::iterator it, bool IntOrDat)
 }
 
 double
-DASB::caculateDeferTime(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> receiveNode) {
+DASB::calculateDeferTime(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> receiveNode) {
 	ns3::Ptr<ns3::MobilityModel> mobility1 = sendNode->GetObject<ns3::MobilityModel>();
 	ns3::Ptr<ns3::MobilityModel> mobility2 = receiveNode->GetObject<ns3::MobilityModel>();
 	double distance =  mobility2->GetDistanceFrom(mobility1);

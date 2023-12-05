@@ -86,7 +86,18 @@ namespace ns3
 
 		MobilityHelper mobility_STA;
 		mobility_STA.SetPositionAllocator(positionAlloc);
-		mobility_STA.SetMobilityModel("ns3::ConstantPositionMobilityModel");
+		// mobility_STA.SetMobilityModel("ns3::ConstantPositionMobilityModel");
+
+	for (const auto& node:nodes) {
+		    Ptr<ConstantVelocityMobilityModel> mobility = CreateObject<ConstantVelocityMobilityModel>();
+    mobility->SetVelocity(Vector(10, 0, 0));
+		node->AggregateObject(mobility);
+	}
+
+	// ConstantVelocityHelper mob;
+	// mob.SetVelocity(Vector3D(10,0,0));
+	
+
 		mobility_STA.Install(nodes);
 		//   Ptr<ListPositionAllocator> positionAlloc =
 		//     CreateObject<ListPositionAllocator>();
@@ -113,10 +124,11 @@ namespace ns3
 		ndnHelper.InstallAll();
 		std::cout << "Install stack\n";
 
-		ndn::StrategyChoiceHelper::InstallAll("/", "/localhost/nfd/strategy/DIFS/%FD%01");
+		ndn::StrategyChoiceHelper::InstallAll("/", "/localhost/nfd/strategy/PRFS/%FD%01");
 
 		// Installing Consumer
-		ndn::AppHelper consumerHelper("ns3::ndn::ConsumerCbr");
+		// ndn::AppHelper consumerHelper("ns3::ndn::ConsumerCbr");
+		ndn::AppHelper consumerHelper("ns3::ndn::ConsumerTest");
 		consumerHelper.SetAttribute("Frequency", DoubleValue(1));
 		consumerHelper.SetAttribute("Randomize", StringValue("none"));
 		// ndn::AppHelper consumerHelper("ns3::ndn::ConsumerZipfMandelbrot");
@@ -126,7 +138,7 @@ namespace ns3
 		// consumerHelper.SetAttribute("s", StringValue("0.7"));
 		consumerHelper.SetPrefix("/ustc");
 		NodeContainer consumerContainer;
-		consumerContainer.Add(nodes[0]);
+		consumerContainer.Add(nodes[1]);
 		// consumerContainer.Add(nodes[2]);
 		consumerHelper.Install(consumerContainer);
 		std::cout << "Install consumer\n";
@@ -141,7 +153,7 @@ namespace ns3
 				  << " nodes and producers in " << producercontainer.GetN()
 				  << " nodes" << std::endl;
 
-		ndn::AppDelayTracer::Install(nodes[0], "results/delay_vndn.log");
+		ndn::AppDelayTracer::Install(nodes[1], "results/delay_vndn.log");
 		// ndn::CsTracer::InstallAll("results/cs_prfs.log", MilliSeconds(1000));
 
 		Simulator::Stop(Seconds(10));
