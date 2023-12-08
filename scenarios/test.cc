@@ -124,11 +124,11 @@ namespace ns3
 		ndnHelper.InstallAll();
 		std::cout << "Install stack\n";
 
-		ndn::StrategyChoiceHelper::InstallAll("/", "/localhost/nfd/strategy/PRFS/%FD%01");
+		ndn::StrategyChoiceHelper::InstallAll("/", "/localhost/nfd/strategy/MUPF/%FD%01");
 
 		// Installing Consumer
-		// ndn::AppHelper consumerHelper("ns3::ndn::ConsumerCbr");
-		ndn::AppHelper consumerHelper("ns3::ndn::ConsumerTest");
+		ndn::AppHelper consumerHelper("ns3::ndn::ConsumerCbr");
+		// ndn::AppHelper consumerHelper("ns3::ndn::ConsumerTest");
 		consumerHelper.SetAttribute("Frequency", DoubleValue(1));
 		consumerHelper.SetAttribute("Randomize", StringValue("none"));
 		// ndn::AppHelper consumerHelper("ns3::ndn::ConsumerZipfMandelbrot");
@@ -148,6 +148,7 @@ namespace ns3
 		producer.SetPrefix("/ustc");
 		producer.SetAttribute("PayloadSize", UintegerValue(1024));
 		auto producercontainer = producer.Install(nodes[3]);
+		producer.Install(nodes[0]);
 		std::cout << "Install producer\n";
 		std::cout << "Install consumers in " << consumerContainer.GetN()
 				  << " nodes and producers in " << producercontainer.GetN()
