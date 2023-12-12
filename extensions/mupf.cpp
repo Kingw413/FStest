@@ -91,18 +91,15 @@ MUPF::beforeSatisfyInterest(const shared_ptr<pit::Entry>& pitEntry,
     
     const ndn::Name prefix = pitEntry->getName().getPrefix(1);
     bool isDiscovery = pitEntry->getInterest().getTag<lp::NonDiscoveryTag>() != nullptr;
-
-    // 若是Content Discovery包，则需要延长pitEntry的生命周期，以等待不同上游的Data包返回
-    if (isDiscovery) { 
-        this->setExpiryTimer(pitEntry, 5000_ms);
-    }
-
     // 不是Content Discovery则不需要执行操作
     if ( !isDiscovery ) {return;}
+
+    // 若是Content Discovery包，则需要延长pitEntry的生命周期，以等待不同上游的Data包返回
+    this->setExpiryTimer(pitEntry, 5000_ms);
     
     ns3::Ptr<ns3::Node> localNode = getNode(*this);
 
-    // 当Interest到达Producer后，将Provider ID添加到`CongestionMarkTag`中。
+    // 当Interest到达Producer后，将Provider ID添加到Data包的`CongestionMarkTag`中。
     if (ingress.face.getId()==256+m_nodes.GetN()) {
         NFD_LOG_DEBUG("Set Provider ID Tag="<<localNode->GetId());
         data.setTag(make_shared<lp::CongestionMarkTag>(localNode->GetId()));
@@ -113,11 +110,8 @@ MUPF::beforeSatisfyInterest(const shared_ptr<pit::Entry>& pitEntry,
     if (requesterId == localNode->GetId()) {
         NFD_LOG_DEBUG("Content Discovery Finished!");
         uint64_t providerNodeId = data.getTag<lp::CongestionMarkTag>()->get();
-        const auto transport = ingress.face.getTransport();
-        ns3::ndn::WifiNetDeviceTransport *wifiTrans = dynamic_cast<ns3::ndn::WifiNetDeviceTransport *>(transport);
-        ns3::Ptr<ns3::Node> srcNode = wifiTrans->GetNode();
         ns3::Ptr<ns3::Node> providerNode = m_nodes[providerNodeId];
-        this->unicastPathBuilding(prefix, srcNode, providerNode);
+        this->unicastPathBuilding(prefix, localNode, providerNode);
     } 
 }
 
@@ -152,7 +146,7 @@ MUPF::contentDiscovery(const FaceEndpoint& ingress, const Interest& interest, co
     if (ingress.face.getId()==256+m_nodes.GetN()) {
         // 使用NonDiscoveryTag标识是否是用于Content Discovery的Interest包
         interest.setTag(make_shared<lp::NonDiscoveryTag>(lp::EmptyValue{}));
-        // 使用HopCountTag标识Requseter ID
+        // 使用Interest包的CongestionMarkTag标识Requseter ID
         interest.setTag(make_shared<lp::CongestionMarkTag>(localNode->GetId()));
         NFD_LOG_DEBUG("Set Requester ID="<<interest.getTag<lp::CongestionMarkTag>()->get());
     }
