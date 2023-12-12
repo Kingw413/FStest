@@ -81,15 +81,17 @@ namespace ns3
 			CreateObject<ListPositionAllocator>();
 		positionAlloc->Add(Vector(0, 0, 0));
 		positionAlloc->Add(Vector(40, 0, 0));
-		positionAlloc->Add(Vector(80, 0, 0));
-		positionAlloc->Add(Vector(120, 0, 0));
+		positionAlloc->Add(Vector(110, 0, 0));
+		positionAlloc->Add(Vector(150, 0, 0));
 
 		MobilityHelper mobility_STA;
 		mobility_STA.SetPositionAllocator(positionAlloc);
 		// mobility_STA.SetMobilityModel("ns3::ConstantPositionMobilityModel");
+		// mobility_STA.Install(nodes);
 
 	for (const auto& node:nodes) {
 		    Ptr<ConstantVelocityMobilityModel> mobility = CreateObject<ConstantVelocityMobilityModel>();
+	mobility->SetPosition(Vector(60*node->GetId(),0,0));
     mobility->SetVelocity(Vector(10, 0, 0));
 		node->AggregateObject(mobility);
 	}
@@ -98,7 +100,6 @@ namespace ns3
 	// mob.SetVelocity(Vector3D(10,0,0));
 	
 
-		mobility_STA.Install(nodes);
 		//   Ptr<ListPositionAllocator> positionAlloc =
 		//     CreateObject<ListPositionAllocator>();
 		// positionAlloc->Add(Vector(0, 0, 0));
@@ -124,7 +125,7 @@ namespace ns3
 		ndnHelper.InstallAll();
 		std::cout << "Install stack\n";
 
-		ndn::StrategyChoiceHelper::InstallAll("/", "/localhost/nfd/strategy/MUPF/%FD%01");
+		ndn::StrategyChoiceHelper::InstallAll("/", "/localhost/nfd/strategy/MINE/%FD%01");
 
 		// Installing Consumer
 		ndn::AppHelper consumerHelper("ns3::ndn::ConsumerCbr");
