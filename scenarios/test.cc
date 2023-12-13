@@ -52,7 +52,7 @@ namespace ns3
 		std::string phyMode("OfdmRate6Mbps");
 
 		NodeContainer nodes;
-		nodes.Create(4);
+		nodes.Create(3);
 
 		YansWifiPhyHelper wifiPhy;
 		YansWifiChannelHelper channelHelper = YansWifiChannelHelper::Default();
@@ -139,7 +139,7 @@ namespace ns3
 		// consumerHelper.SetAttribute("s", StringValue("0.7"));
 		consumerHelper.SetPrefix("/ustc");
 		NodeContainer consumerContainer;
-		consumerContainer.Add(nodes[1]);
+		consumerContainer.Add(nodes[0]);
 		// consumerContainer.Add(nodes[2]);
 		consumerHelper.Install(consumerContainer);
 		std::cout << "Install consumer\n";
@@ -148,14 +148,16 @@ namespace ns3
 		ndn::AppHelper producer("ns3::ndn::Producer");
 		producer.SetPrefix("/ustc");
 		producer.SetAttribute("PayloadSize", UintegerValue(1024));
-		auto producercontainer = producer.Install(nodes[3]);
-		producer.Install(nodes[0]);
+		NodeContainer producercontainer;
+		// producercontainer.Add(nodes[3]);	
+		producercontainer.Add(nodes[2]);	
+		producer.Install(producercontainer);
 		std::cout << "Install producer\n";
 		std::cout << "Install consumers in " << consumerContainer.GetN()
 				  << " nodes and producers in " << producercontainer.GetN()
 				  << " nodes" << std::endl;
 
-		ndn::AppDelayTracer::Install(nodes[1], "results/delay_vndn.log");
+		ndn::AppDelayTracer::Install(nodes[0], "results/delay_vndn.log");
 		// ndn::CsTracer::InstallAll("results/cs_prfs.log", MilliSeconds(1000));
 
 		Simulator::Stop(Seconds(10));

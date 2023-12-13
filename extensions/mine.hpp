@@ -1,6 +1,7 @@
 #ifndef NFD_DAEMON_FW_MINE_HPP
 #define NFD_DAEMON_FW_MINE_HPP
 
+#include "ns3/ndnSIM/model/ndn-l3-protocol.hpp"
 #include "ns3/ndnSIM/NFD/daemon/fw/strategy.hpp"
 #include "ns3/ndnSIM/NFD/daemon/fw/process-nack-traits.hpp"
 #include "ns3/ndnSIM/NFD/daemon/fw/retx-suppression-exponential.hpp"
@@ -54,7 +55,11 @@ public:
 
     /*内容发现，当FIB表中没有匹配项时触发*/
     void
-    contentDiscovery(const FaceEndpoint& ingress, const Interest& interest, const shared_ptr<pit::Entry> &pitEntry);
+    contentDiscovery(ns3::Ptr<ns3::Node> localNode, const FaceEndpoint& ingress, const fib::NextHopList& nexthops, const Interest& interest, const shared_ptr<pit::Entry> &pitEntry);
+
+    /*添加CPT，在内容发现完成后触发*/
+    void
+    createCPT(ns3::Ptr<ns3::Node> providerNode);
 
     /*建立路径，在内容发现完成后触发*/
     void
@@ -62,7 +67,7 @@ public:
 
     /*在FIB中选择下一跳*/
     nfd::fib::NextHop
-    selectFIB(const fib::NextHopList& nexthops);
+    selectFIB(ns3::Ptr<ns3::Node> localNode, const fib::NextHopList& nexthops);
 
     /*更新当前节点的FIB，周期性触发*/
     void
@@ -96,6 +101,11 @@ public:
     bool
     isInRegion(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> recvNode);
 
+    bool
+    isNextHopEligible(const Face& inFace,
+                  const fib::NextHop& nexthop,
+                  ns3::Ptr<ns3::Node> node);
+
     /* 得到当前node
      * 通过判断this指针与哪个node的strategy指向相同对象，来判别当前的node
     */
@@ -112,7 +122,6 @@ private:
     static const double Beta;
 
 	ns3::NodeContainer m_nodes;
-    // ns3::Ptr<ns3::Node> m_node;
     bool m_isContentDiscovery = false;
 	std::vector<MINE::weightTableEntry> m_WT;
 	std::vector<MINE::neighborTableEntry> m_NT;

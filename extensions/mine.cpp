@@ -35,10 +35,9 @@ MINE::MINE(Forwarder& forwarder, const Name& name)
     : Strategy(forwarder),
     m_forwarder(forwarder),
     m_measurements(getMeasurements()),
-      ProcessNackTraits(this),
-      m_nodes(ns3::NodeContainer::GetGlobal()),
-    //   m_node(getNode(*this)),
-      m_retxSuppression(RETX_SUPPRESSION_INITIAL,
+    ProcessNackTraits(this),
+    m_nodes(ns3::NodeContainer::GetGlobal()),
+    m_retxSuppression(RETX_SUPPRESSION_INITIAL,
                         RetxSuppressionExponential::DEFAULT_MULTIPLIER,
                         RETX_SUPPRESSION_MAX) {
     ParsedInstanceName parsed = parseInstanceName(name);
@@ -58,7 +57,6 @@ const Name& MINE::getStrategyName() {
     return strategyName;
 }
 
-
 void MINE::afterReceiveInterest(const FaceEndpoint& ingress,
                                const Interest& interest,
                                const shared_ptr<pit::Entry>& pitEntry)
@@ -67,27 +65,32 @@ void MINE::afterReceiveInterest(const FaceEndpoint& ingress,
     const Name prefix = fibEntry.getPrefix();
     const fib::NextHopList& nexthops = fibEntry.getNextHops();
     auto it = *nexthops.begin();
+    ns3::Ptr<ns3::Node> localNode = getNode(*this);
 
-    /*
-     *当到达Producer时，直接交付给App，不执行泛洪检索；
-     *因为创建无线face时在FIB中添加了“/”的路由，因此匹配到“/”等价于FIB中无匹配项
-    */
-    if ( it.getFace().getId() != 256+m_nodes.GetN() && prefix == "/") {
+    //因为创建无线face时在FIB中添加了“/”的路由，因此匹配到“/”等价于FIB中无匹配项
+    if (prefix == "/") {
         NFD_LOG_DEBUG("There is no entry in FIB, do Content Discovery!");
-        contentDiscovery(ingress, interest, pitEntry);
+        contentDiscovery(localNode, ingress, nexthops, interest, pitEntry);
         return;
     }
 
-    ns3::Ptr<ns3::Node> srcNode = getNode(*this);
+    // 更新FIB
     for (const auto& providerNode : m_CPT) {
-        NFD_LOG_DEBUG("update CPT P="<<providerNode->GetId());
-        this->updateFIB(prefix, srcNode, providerNode, nexthops);
+        // NFD_LOG_DEBUG("update CPT P="<<providerNode->GetId());
+        this->updateFIB(prefix, localNode, providerNode, nexthops);
     }
 
-    it = this->selectFIB(nexthops);
+    it = this->selectFIB(localNode, nexthops);
 	auto egress = FaceEndpoint(it.getFace(), 0);
     NFD_LOG_DEBUG("do Send Interest="<<interest << " from=" << ingress << "to=" << egress);
 	this->sendInterest(pitEntry, egress, interest);
+
+    FaceInfo &faceInfo = m_measurements.getOrCreateFaceInfo(fibEntry, interest, egress.face.getId());
+    NFD_LOG_DEBUG("RTT="<<faceInfo.getLastRtt()<<", sRTT="<<faceInfo.getSrtt());
+
+    // Refresh measurements since Face is being used for forwarding
+    NamespaceInfo &namespaceInfo = m_measurements.getOrCreateNamespaceInfo(fibEntry, interest);
+    namespaceInfo.extendFaceInfoLifetime(faceInfo, egress.face.getId());
 }
 
 void
@@ -106,31 +109,23 @@ MINE::beforeSatisfyInterest(const shared_ptr<pit::Entry>& pitEntry,
         this->setExpiryTimer(pitEntry, 5000_ms);
 
         ns3::Ptr<ns3::Node> localNode = getNode(*this);
-
+        
         // 当Interest到达Producer后，将Provider ID添加到Data包的`CongestionMarkTag`中。
-        if (ingress.face.getId() == 256 + m_nodes.GetN())
-        {
-            NFD_LOG_DEBUG("Set Provider ID Tag=" << localNode->GetId());
+        if (ingress.face.getId() == 256 + m_nodes.GetN()) {
+            // NFD_LOG_DEBUG("Set Provider ID Tag=" << localNode->GetId());
             data.setTag(make_shared<lp::CongestionMarkTag>(localNode->GetId()));
         }
 
         // 当Data返回到请求的Consumer端时，结束泛洪检索，并触发路径建立过程。
         uint64_t requesterId = pitEntry->getInterest().getTag<lp::CongestionMarkTag>()->get();
-        if (requesterId == localNode->GetId())
-        {
+        if (requesterId == localNode->GetId()) {
             NFD_LOG_DEBUG("Content Discovery Finished!");
             uint64_t providerNodeId = data.getTag<lp::CongestionMarkTag>()->get();
             ns3::Ptr<ns3::Node> providerNode = m_nodes[providerNodeId];
 
-            // 为了简单，直接将Provider ID添加到所有节点的CPT中（实际上只需要在相应的Consumer处添加即可）
-            for (const auto node : m_nodes) {
-                ns3::Ptr<ns3::ndn::L3Protocol> ndn = node->GetObject<ns3::ndn::L3Protocol>();
-                ndn::Name prefix("/");
-                nfd::fw::Strategy& strategy = ndn->getForwarder()->getStrategyChoice().findEffectiveStrategy(prefix);
-                nfd::fw::mine::MINE& mine_strategy = dynamic_cast<nfd::fw::mine::MINE&>(strategy);
-                mine_strategy.m_CPT.push_back(providerNode);
-            }
-            
+            // 构建CPT记录Provider。为了简单，直接将Provider ID添加到所有节点的CPT中（实际上只需要在相应的Consumer处添加即可
+            this->createCPT(providerNode);
+            // 触发路径建立
             this->unicastPathBuilding(prefix, localNode, providerNode);
         }
         return;
@@ -197,28 +192,34 @@ MINE::afterReceiveData(const shared_ptr<pit::Entry>& pitEntry,
 }
 
 void
-MINE::contentDiscovery(const FaceEndpoint& ingress, const Interest& interest, const shared_ptr<pit::Entry> &pitEntry) {
-    const fib::Entry& fibEntry = this->lookupFib(*pitEntry);
-    const Name prefix = fibEntry.getPrefix();
-    const fib::NextHopList& nexthops = fibEntry.getNextHops();
-    const auto transport = nexthops.begin()->getFace().getTransport();
-    ns3::ndn::WifiNetDeviceTransport *wifiTrans = dynamic_cast<ns3::ndn::WifiNetDeviceTransport *>(transport);
-    ns3::Ptr<ns3::Node> localNode = wifiTrans->GetNode();
-    if (ingress.face.getId()==256+m_nodes.GetN()) {
+MINE::contentDiscovery(ns3::Ptr<ns3::Node> localNode, const FaceEndpoint& ingress, const fib::NextHopList& nexthops, const Interest& interest, const shared_ptr<pit::Entry> &pitEntry) {
+    // ns3::Ptr<ns3::Node> localNode =getNode(*this);
+        if (ingress.face.getId()==256+m_nodes.GetN()) {
         // 使用NonDiscoveryTag标识是否是用于Content Discovery的Interest包
         interest.setTag(make_shared<lp::NonDiscoveryTag>(lp::EmptyValue{}));
         // 使用Interest包的CongestionMarkTag标识Requseter ID
         interest.setTag(make_shared<lp::CongestionMarkTag>(localNode->GetId()));
-        NFD_LOG_DEBUG("Set Requester ID="<<interest.getTag<lp::CongestionMarkTag>()->get());
+        // NFD_LOG_DEBUG("Set Requester ID="<<interest.getTag<lp::CongestionMarkTag>()->get());
     }
 
     for (const auto& nexthop : nexthops) {
-        uint32_t othNodeId = (nexthop.getFace().getId() - 257) + (localNode->GetId() + 257 <= nexthop.getFace().getId());
-        ns3::Ptr<ns3::Node>othNode = m_nodes[othNodeId];
-        if ( ingress.face.getId() == nexthop.getFace().getId() ||  !isInRegion(localNode, othNode) ) { continue; }
+        if (!isNextHopEligible(ingress.face, nexthop, localNode))
+            continue;
         auto egress = FaceEndpoint(nexthop.getFace(), 0);
         this->sendInterest(pitEntry, egress, interest);
-        NFD_LOG_DEBUG("do Send Interest="<<interest << " from=" << ingress << "to=" << egress);
+        NFD_LOG_DEBUG("do Discovery Interest="<<interest << " from=" << ingress << "to=" << egress);
+    }
+}
+
+void
+MINE::createCPT(ns3::Ptr<ns3::Node> providerNode) {
+    for (const auto& node : m_nodes)
+    {
+        ns3::Ptr<ns3::ndn::L3Protocol> ndn = node->GetObject<ns3::ndn::L3Protocol>();
+        ndn::Name prefix("/");
+        nfd::fw::Strategy &strategy = ndn->getForwarder()->getStrategyChoice().findEffectiveStrategy(prefix);
+        nfd::fw::mine::MINE &mine_strategy = dynamic_cast<nfd::fw::mine::MINE &>(strategy);
+        mine_strategy.m_CPT.push_back(providerNode);
     }
 }
 
@@ -235,29 +236,28 @@ MINE::unicastPathBuilding(const ndn::Name prefix, ns3::Ptr<ns3::Node> srcNode, n
             double score = Mu*dis + Phi*dir + Omega*den;
             weightTableEntry entry = {node, dis, dir, den, score};
             weightTable.push_back(entry);
-            NFD_LOG_DEBUG("neiNode="<<node->GetId()<<", dis="<<dis<<", dir="<<dir<<", den="<<den<<", score="<<score);
+            // NFD_LOG_DEBUG("neiNode="<<node->GetId()<<", dis="<<dis<<", dir="<<dir<<", den="<<den<<", score="<<score);
         }
         ns3::Ptr<ns3::Node> selectNode = std::max_element(weightTable.begin(), weightTable.end(), [](const auto& a, const auto& b) { return a.Score<b.Score;})->node;
         double score = std::max_element(weightTable.begin(), weightTable.end(), [](const auto& a, const auto& b) { return a.Score<b.Score;})->Score;
         ns3::Ptr<ns3::ndn::L3Protocol> ndn = selectNode->GetObject<ns3::ndn::L3Protocol>();
         uint32_t faceId = (selectNode->GetId()+256) + (selectNode->GetId() < srcNode->GetId());
         shared_ptr<Face> face = ndn->getFaceById(faceId);
-        ns3::ndn::FibHelper::AddRoute(srcNode, prefix, face, score*1000);
-        NFD_LOG_DEBUG("Add Route: Node="<<srcNode->GetId()<<", Prefix="<<prefix<<", Face="<<faceId<<", Cost="<<score*1000);
+        ns3::ndn::FibHelper::AddRoute(srcNode, prefix, face, score*1e6);
+        NFD_LOG_DEBUG("Add Route: Node="<<srcNode->GetId()<<", Prefix="<<prefix<<", Face="<<faceId<<", Score="<<score);
         srcNode = selectNode;
     }
     ns3::Ptr<ns3::ndn::L3Protocol> ndn = srcNode->GetObject<ns3::ndn::L3Protocol>();
     uint32_t faceId = (providerNode->GetId()+256) + (providerNode->GetId() < srcNode->GetId());
     shared_ptr<Face> face = ndn->getFaceById(faceId);
-    ns3::ndn::FibHelper::AddRoute(srcNode, prefix, face, std::numeric_limits<int>::max());
-    NFD_LOG_DEBUG("Add Route: Node="<<srcNode->GetId()<<", Prefix="<<prefix<<", Face="<<faceId<<", Cost="<<std::numeric_limits<int>::max());
+    ns3::ndn::FibHelper::AddRoute(srcNode, prefix, face, 10e6);
+    NFD_LOG_DEBUG("Add Route: Node="<<srcNode->GetId()<<", Prefix="<<prefix<<", Face="<<faceId<<", Cost="<<1e6);
 }
-
 
 void
 MINE::updateFIB(const ndn::Name prefix, ns3::Ptr<ns3::Node> srcNode, ns3::Ptr<ns3::Node> providerNode, const fib::NextHopList& nexthops) {
     if (nexthops.begin()->getFace().getId() == 256+m_nodes.GetN()) {return;}
-    double min_score = std::min_element(nexthops.begin(), nexthops.end(), [](const auto& a, const auto& b) {return a.getCost() < b.getCost();})->getCost() / 1000.0;
+    double min_score = std::min_element(nexthops.begin(), nexthops.end(), [](const auto& a, const auto& b) {return a.getCost() < b.getCost();})->getCost() / 1e6;
     for (const auto& oth_node : m_nodes) {
         if ( !isIntermediateNode(oth_node, srcNode, providerNode)) { continue; }
         double dis = this->calculateDistance(oth_node, srcNode, providerNode);
@@ -269,18 +269,16 @@ MINE::updateFIB(const ndn::Name prefix, ns3::Ptr<ns3::Node> srcNode, ns3::Ptr<ns
             uint32_t faceId = (oth_node->GetId()+256) + (oth_node->GetId() < srcNode->GetId());
             shared_ptr<Face> face = ndn->getFaceById(faceId);
             ns3::ndn::FibHelper::AddRoute(srcNode, prefix, face, score*1000);
-            NFD_LOG_DEBUG("updateFIB: Node="<<srcNode->GetId()<<", Prefix="<<prefix<<", Face="<<faceId<<"Cost="<<score*1000);
+            NFD_LOG_DEBUG("updateFIB: Node="<<srcNode->GetId()<<", Prefix="<<prefix<<", Face="<<faceId<<", New_Score="<<score<<", Min_Score="<<min_score);
         }
     }
 }
 
 nfd::fib::NextHop
-MINE::selectFIB(const fib::NextHopList& nexthops) {
-    const auto transport = nexthops.begin()->getFace().getTransport();
-    ns3::ndn::WifiNetDeviceTransport *wifiTrans = dynamic_cast<ns3::ndn::WifiNetDeviceTransport *>(transport);
+MINE::selectFIB(ns3::Ptr<ns3::Node> localNode, const fib::NextHopList& nexthops) {
     auto selectedHop = *nexthops.begin();
     if (selectedHop.getFace().getId() == 256+m_nodes.GetN()) {return selectedHop;}
-    ns3::Ptr<ns3::Node> localNode = wifiTrans->GetNode();
+    // ns3::Ptr<ns3::Node> localNode = getNode(*this);
     double highestValue = 0.0;
     for (const auto& nexthop : nexthops) { 
         uint32_t faceId = nexthop.getFace().getId();
@@ -297,7 +295,6 @@ MINE::selectFIB(const fib::NextHopList& nexthops) {
     NFD_LOG_DEBUG("Selected Next Hop = "<<selectedHop.getFace().getId());
     return selectedHop;
 }
-
 
 bool
 MINE::isIntermediateNode(ns3::Ptr<ns3::Node> node, ns3::Ptr<ns3::Node> srcNode, ns3::Ptr<ns3::Node> desNode) {
@@ -329,7 +326,7 @@ MINE::calculateDirection(ns3::Ptr<ns3::Node> node, ns3::Ptr<ns3::Node> srcNode, 
 	ns3::Ptr<ns3::MobilityModel> mobility3 = desNode->GetObject<ns3::MobilityModel>();
     ns3::Vector a = mobility1->GetVelocity(); 
     ns3::Vector b = mobility2->GetPosition() - mobility3->GetPosition();
-    NFD_LOG_DEBUG("a.x="<<a.x<<", a.y="<<a.y<<", b.x="<<b.x<<", b.y="<<b.y<<"|a|="<<a.GetLength()<<"|b|="<<b.GetLength());
+    // NFD_LOG_DEBUG("a.x="<<a.x<<", a.y="<<a.y<<", b.x="<<b.x<<", b.y="<<b.y<<"|a|="<<a.GetLength()<<"|b|="<<b.GetLength());
     double dir = (a.x * b.x + a.y * b.y) / ( (a.GetLength()+0.0001) *(b.GetLength()+0.0001)); // 防止分母为0
     return dir;
 }
@@ -381,19 +378,36 @@ MINE::isInRegion(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> recvNode) {
     return distance <= Rth;
 }
 
+bool
+MINE::isNextHopEligible(const Face& inFace,
+                  const fib::NextHop& nexthop,
+                  ns3::Ptr<ns3::Node> node) {
+    if (nexthop.getFace().getId() == inFace.getId()) 
+        return false;
+    
+    if (nexthop.getFace().getId()==m_nodes.GetN()+256) 
+        return true;
+    
+    uint32_t othNodeId = (nexthop.getFace().getId() - 257) + (node->GetId() + 257 <= nexthop.getFace().getId());
+    ns3::Ptr<ns3::Node>othNode = m_nodes[othNodeId];
+    return isInRegion(node, othNode);
+}
+
 ns3::Ptr<ns3::Node>
 MINE::getNode(MINE& local_strategy) {
     ns3::Ptr<ns3::Node> localNode;
-    for(auto& node : m_nodes) {
+    for (const auto &node : m_nodes)
+    {
         ns3::Ptr<ns3::ndn::L3Protocol> ndn = node->GetObject<ns3::ndn::L3Protocol>();
-        ndn::Name prefix("/");
-        nfd::fw::Strategy& strategy = ndn->getForwarder()->getStrategyChoice().findEffectiveStrategy(prefix);
-        nfd::fw::mine::MINE& MINE_strategy = dynamic_cast<nfd::fw::mine::MINE&>(strategy);
-        if ( &local_strategy == &MINE_strategy ) {
-            localNode =node;
+        ndn::Name prefix("/ustc");
+        //此处有个坑：注册nfd时先是采用BestRouteStrategy2策略，其需要先发送set信息，因此需保证此时已经设置完毕策略
+        nfd::fw::Strategy &strategy = ndn->getForwarder()->getStrategyChoice().findEffectiveStrategy(prefix);
+        nfd::fw::mine::MINE &MINE_strategy = dynamic_cast<nfd::fw::mine::MINE &>(strategy);
+        if (this == &MINE_strategy)
+        {
+            return node; 
         }
     }
-    return localNode;
 }
 
 }  // namespace mine
