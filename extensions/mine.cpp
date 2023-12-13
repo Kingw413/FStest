@@ -102,33 +102,11 @@ MINE::beforeSatisfyInterest(const shared_ptr<pit::Entry>& pitEntry,
 
     const ndn::Name prefix = pitEntry->getName().getPrefix(1);
     bool isDiscovery = pitEntry->getInterest().getTag<lp::NonDiscoveryTag>() != nullptr;
-    // 对Content Discovery执行添加Tag操作，判断其是否完成
+    // 收到相应的Discovery的Data包后触发操作
     if (isDiscovery)
     {
-        // 若是Content Discovery包，则需要延长pitEntry的生命周期，以等待不同上游的Data包返回
-        this->setExpiryTimer(pitEntry, 5000_ms);
-
-        ns3::Ptr<ns3::Node> localNode = getNode(*this);
-        
-        // 当Interest到达Producer后，将Provider ID添加到Data包的`CongestionMarkTag`中。
-        if (ingress.face.getId() == 256 + m_nodes.GetN()) {
-            // NFD_LOG_DEBUG("Set Provider ID Tag=" << localNode->GetId());
-            data.setTag(make_shared<lp::CongestionMarkTag>(localNode->GetId()));
-        }
-
-        // 当Data返回到请求的Consumer端时，结束泛洪检索，并触发路径建立过程。
-        uint64_t requesterId = pitEntry->getInterest().getTag<lp::CongestionMarkTag>()->get();
-        if (requesterId == localNode->GetId()) {
-            NFD_LOG_DEBUG("Content Discovery Finished!");
-            uint64_t providerNodeId = data.getTag<lp::CongestionMarkTag>()->get();
-            ns3::Ptr<ns3::Node> providerNode = m_nodes[providerNodeId];
-
-            // 构建CPT记录Provider。为了简单，直接将Provider ID添加到所有节点的CPT中（实际上只需要在相应的Consumer处添加即可
-            this->createCPT(providerNode);
-            // 触发路径建立
-            this->unicastPathBuilding(prefix, localNode, providerNode);
-        }
-        return;
+        afterReceiveDiscoveryData(pitEntry, ingress, data);
+        // return; 是否需要测量Discovery包的RTT？
     }
 
     // 对于正常的Interest，记录端口的指标信息
@@ -162,13 +140,43 @@ MINE::beforeSatisfyInterest(const shared_ptr<pit::Entry>& pitEntry,
     // Extend lifetime for measurements associated with Face
     namespaceInfo->extendFaceInfoLifetime(*faceInfo, ingress.face.getId());
 
-    faceInfo->cancelTimeout(data.getName());
-
     // ns3::Ptr<ns3::Node> node;
     // ns3::Ptr<ns3::ndn::L3Protocol> ndn = node->GetObject<ns3::ndn::L3Protocol>();
     // auto fw = ndn->getForwarder();
     // const ForwarderCounters& count = fw->getCounters();                                                                                 
     // double isr = count.nInInterests / count.nSatisfiedInterests;
+}
+
+
+void
+MINE::afterReceiveDiscoveryData(const shared_ptr<pit::Entry>& pitEntry,
+                        const FaceEndpoint& ingress, const Data& data) {
+    // 若是Content Discovery包，则需要延长pitEntry的生命周期，以等待不同上游的Data包返回
+    this->setExpiryTimer(pitEntry, 5000_ms);
+
+    ns3::Ptr<ns3::Node> localNode = getNode(*this);
+
+    // 当Interest到达Producer后，将Provider ID添加到Data包的`CongestionMarkTag`中。
+    if (ingress.face.getId() == 256 + m_nodes.GetN())
+    {
+        // NFD_LOG_DEBUG("Set Provider ID Tag=" << localNode->GetId());
+        data.setTag(make_shared<lp::CongestionMarkTag>(localNode->GetId()));
+    }
+
+    // 当Data返回到请求的Consumer端时，结束泛洪检索，并触发路径建立过程。
+    uint64_t requesterId = pitEntry->getInterest().getTag<lp::CongestionMarkTag>()->get();
+    if (requesterId == localNode->GetId())
+    {
+        NFD_LOG_DEBUG("Content Discovery Finished!");
+        uint64_t providerNodeId = data.getTag<lp::CongestionMarkTag>()->get();
+        ns3::Ptr<ns3::Node> providerNode = m_nodes[providerNodeId];
+
+        // 构建CPT记录Provider。为了简单，直接将Provider ID添加到所有节点的CPT中（实际上只需要在相应的Consumer处添加即可
+        this->createCPT(providerNode);
+        // 触发路径建立
+        const ndn::Name prefix = pitEntry->getName().getPrefix(1);
+        this->unicastPathBuilding(prefix, localNode, providerNode);
+    }
 }
 
 void

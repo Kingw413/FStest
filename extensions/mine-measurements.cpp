@@ -33,23 +33,6 @@ namespace mine {
 const time::nanoseconds FaceInfo::RTT_NO_MEASUREMENT{-1};
 const time::nanoseconds FaceInfo::RTT_TIMEOUT{-2};
 
-time::nanoseconds
-FaceInfo::scheduleTimeout(const Name& interestName, scheduler::EventCallback cb)
-{
-  BOOST_ASSERT(!m_timeoutEvent);
-  m_lastInterestName = interestName;
-  m_timeoutEvent = getScheduler().schedule(m_rttEstimator.getEstimatedRto(), std::move(cb));
-  return m_rttEstimator.getEstimatedRto();
-}
-
-void
-FaceInfo::cancelTimeout(const Name& prefix)
-{
-  if (m_lastInterestName.isPrefixOf(prefix)) {
-    m_timeoutEvent.cancel();
-  }
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 

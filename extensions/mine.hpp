@@ -57,6 +57,11 @@ public:
     void
     contentDiscovery(ns3::Ptr<ns3::Node> localNode, const FaceEndpoint& ingress, const fib::NextHopList& nexthops, const Interest& interest, const shared_ptr<pit::Entry> &pitEntry);
 
+    /*收到Discovery对应的Data包后触发*/
+    void
+    afterReceiveDiscoveryData(const shared_ptr<pit::Entry>& pitEntry,
+                        const FaceEndpoint& ingress, const Data& data);
+
     /*添加CPT，在内容发现完成后触发*/
     void
     createCPT(ns3::Ptr<ns3::Node> providerNode);

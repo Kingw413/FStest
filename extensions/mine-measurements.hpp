@@ -45,37 +45,11 @@ public:
     : m_rttEstimator(std::move(opts))
   {
   }
-
-  bool
-  isTimeoutScheduled() const
-  {
-    return !!m_timeoutEvent;
-  }
-
-  time::nanoseconds
-  scheduleTimeout(const Name& interestName, scheduler::EventCallback cb);
-
-  void
-  cancelTimeout(const Name& prefix);
-
   void
   recordRtt(time::nanoseconds rtt)
   {
     m_lastRtt = rtt;
     m_rttEstimator.addMeasurement(rtt);
-  }
-
-  void
-  recordTimeout(const Name& interestName)
-  {
-    m_lastRtt = RTT_TIMEOUT;
-    cancelTimeout(interestName);
-  }
-
-  bool
-  hasTimeout() const
-  {
-    return getLastRtt() == RTT_TIMEOUT;
   }
 
   time::nanoseconds
