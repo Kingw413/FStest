@@ -77,21 +77,21 @@ namespace ns3
 
 		// Ns2MobilityHelper ns2Mobiity = Ns2MobilityHelper("/home/whd/ndnSIM2.8/wireless-macspec/scenarios/manhattan.tcl");
 		// ns2Mobiity.Install();
-		Ptr<ListPositionAllocator> positionAlloc =
-			CreateObject<ListPositionAllocator>();
-		positionAlloc->Add(Vector(0, 0, 0));
-		positionAlloc->Add(Vector(40, 0, 0));
-		positionAlloc->Add(Vector(110, 0, 0));
-		positionAlloc->Add(Vector(150, 0, 0));
+		// Ptr<ListPositionAllocator> positionAlloc =
+		// 	CreateObject<ListPositionAllocator>();
+		// positionAlloc->Add(Vector(0, 0, 0));
+		// positionAlloc->Add(Vector(40, 0, 0));
+		// positionAlloc->Add(Vector(80, 0, 0));
+		// positionAlloc->Add(Vector(150, 0, 0));
 
-		MobilityHelper mobility_STA;
-		mobility_STA.SetPositionAllocator(positionAlloc);
+		// MobilityHelper mobility_STA;
+		// mobility_STA.SetPositionAllocator(positionAlloc);
 		// mobility_STA.SetMobilityModel("ns3::ConstantPositionMobilityModel");
 		// mobility_STA.Install(nodes);
 
 	for (const auto& node:nodes) {
 		    Ptr<ConstantVelocityMobilityModel> mobility = CreateObject<ConstantVelocityMobilityModel>();
-	mobility->SetPosition(Vector(60*node->GetId(),0,0));
+	mobility->SetPosition(Vector(40*node->GetId(),0,0));
     mobility->SetVelocity(Vector(10, 0, 0));
 		node->AggregateObject(mobility);
 	}

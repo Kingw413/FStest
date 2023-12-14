@@ -14,6 +14,7 @@
 #include <ndn-cxx/lp/empty-value.hpp>
 #include <ndn-cxx/lp/prefix-announcement-header.hpp>
 #include <ndn-cxx/lp/tags.hpp>
+#include <chrono>
 
 namespace nfd {
 namespace fw {
@@ -33,10 +34,8 @@ const time::milliseconds MINE::RETX_SUPPRESSION_MAX(250);
 
 MINE::MINE(Forwarder& forwarder, const Name& name)
     : Strategy(forwarder),
-    m_forwarder(forwarder),
-    m_measurements(getMeasurements()),
-    ProcessNackTraits(this),
     m_nodes(ns3::NodeContainer::GetGlobal()),
+    m_measurements(getMeasurements()),
     m_retxSuppression(RETX_SUPPRESSION_INITIAL,
                         RetxSuppressionExponential::DEFAULT_MULTIPLIER,
                         RETX_SUPPRESSION_MAX) {
@@ -64,7 +63,6 @@ void MINE::afterReceiveInterest(const FaceEndpoint& ingress,
     const fib::Entry& fibEntry = this->lookupFib(*pitEntry);
     const Name prefix = fibEntry.getPrefix();
     const fib::NextHopList& nexthops = fibEntry.getNextHops();
-    auto it = *nexthops.begin();
     ns3::Ptr<ns3::Node> localNode = getNode(*this);
 
     //因为创建无线face时在FIB中添加了“/”的路由，因此匹配到“/”等价于FIB中无匹配项
@@ -80,13 +78,12 @@ void MINE::afterReceiveInterest(const FaceEndpoint& ingress,
         this->updateFIB(prefix, localNode, providerNode, nexthops);
     }
 
-    it = this->selectFIB(localNode, nexthops);
-	auto egress = FaceEndpoint(it.getFace(), 0);
+    auto it = this->selectFIB(localNode, interest, nexthops, fibEntry);
+	auto egress = FaceEndpoint(*it, 0);
     NFD_LOG_DEBUG("do Send Interest="<<interest << " from=" << ingress << "to=" << egress);
 	this->sendInterest(pitEntry, egress, interest);
 
     FaceInfo &faceInfo = m_measurements.getOrCreateFaceInfo(fibEntry, interest, egress.face.getId());
-    NFD_LOG_DEBUG("RTT="<<faceInfo.getLastRtt()<<", sRTT="<<faceInfo.getSrtt());
 
     // Refresh measurements since Face is being used for forwarding
     NamespaceInfo &namespaceInfo = m_measurements.getOrCreateNamespaceInfo(fibEntry, interest);
@@ -106,7 +103,7 @@ MINE::beforeSatisfyInterest(const shared_ptr<pit::Entry>& pitEntry,
     if (isDiscovery)
     {
         afterReceiveDiscoveryData(pitEntry, ingress, data);
-        // return; 是否需要测量Discovery包的RTT？
+        return; // 是否需要测量Discovery包的RTT？
     }
 
     // 对于正常的Interest，记录端口的指标信息
@@ -258,8 +255,8 @@ MINE::unicastPathBuilding(const ndn::Name prefix, ns3::Ptr<ns3::Node> srcNode, n
     ns3::Ptr<ns3::ndn::L3Protocol> ndn = srcNode->GetObject<ns3::ndn::L3Protocol>();
     uint32_t faceId = (providerNode->GetId()+256) + (providerNode->GetId() < srcNode->GetId());
     shared_ptr<Face> face = ndn->getFaceById(faceId);
-    ns3::ndn::FibHelper::AddRoute(srcNode, prefix, face, 10e6);
-    NFD_LOG_DEBUG("Add Route: Node="<<srcNode->GetId()<<", Prefix="<<prefix<<", Face="<<faceId<<", Cost="<<1e6);
+    ns3::ndn::FibHelper::AddRoute(srcNode, prefix, face, 1e6);
+    NFD_LOG_DEBUG("Add Route: Node="<<srcNode->GetId()<<", Prefix="<<prefix<<", Face="<<faceId<<", Score="<<1.0);
 }
 
 void
@@ -276,33 +273,62 @@ MINE::updateFIB(const ndn::Name prefix, ns3::Ptr<ns3::Node> srcNode, ns3::Ptr<ns
             ns3::Ptr<ns3::ndn::L3Protocol> ndn = srcNode->GetObject<ns3::ndn::L3Protocol>();
             uint32_t faceId = (oth_node->GetId()+256) + (oth_node->GetId() < srcNode->GetId());
             shared_ptr<Face> face = ndn->getFaceById(faceId);
-            ns3::ndn::FibHelper::AddRoute(srcNode, prefix, face, score*1000);
+            ns3::ndn::FibHelper::AddRoute(srcNode, prefix, face, score*1e6);
             NFD_LOG_DEBUG("updateFIB: Node="<<srcNode->GetId()<<", Prefix="<<prefix<<", Face="<<faceId<<", New_Score="<<score<<", Min_Score="<<min_score);
         }
     }
 }
 
-nfd::fib::NextHop
-MINE::selectFIB(ns3::Ptr<ns3::Node> localNode, const fib::NextHopList& nexthops) {
+Face*
+MINE::selectFIB(ns3::Ptr<ns3::Node> localNode, const Interest& interest, const fib::NextHopList& nexthops, const fib::Entry& fibEntry) {
     auto selectedHop = *nexthops.begin();
-    if (selectedHop.getFace().getId() == 256+m_nodes.GetN()) {return selectedHop;}
-    // ns3::Ptr<ns3::Node> localNode = getNode(*this);
-    double highestValue = 0.0;
-    for (const auto& nexthop : nexthops) { 
+    if (selectedHop.getFace().getId() == 256+m_nodes.GetN()) {return &selectedHop.getFace();}
+    
+    std::vector<FaceStats> faceList;
+    for(const auto& nexthop : nexthops) {
         uint32_t faceId = nexthop.getFace().getId();
         uint32_t othNodeId = (faceId - 257) + (localNode->GetId() + 257 <= faceId);
         ns3::Ptr<ns3::Node>othNode = m_nodes[othNodeId];
         double let = this->calculateLET(localNode, othNode);
         double link_prob = this->calculateLAP(let, 2.0);
-        double final_value = Alpha*let + Beta*link_prob;
-        if (final_value > highestValue) {
-            highestValue = final_value;
-            selectedHop = nexthop;
+
+        FaceInfo* info = m_measurements.getFaceInfo(fibEntry, interest, nexthop.getFace().getId());
+        if (info == nullptr) {
+            faceList.push_back({&nexthop.getFace(),
+                            let, link_prob, -1});
+        }
+        else {
+            double srtt = boost::chrono::duration_cast<boost::chrono::duration<double>>(info->getSrtt()).count();
+            faceList.push_back({&nexthop.getFace(),let, link_prob, srtt});
+            NFD_LOG_DEBUG("Face="<<nexthop.getFace().getId()<<", LET="<<let<<", LAP="<<link_prob<<", SRTT="<<srtt);
         }
     }
-    NFD_LOG_DEBUG("Selected Next Hop = "<<selectedHop.getFace().getId());
-    return selectedHop;
+    std::vector<FaceStats> normalizedFaceList  = customNormalize(faceList);
+    auto it = std::max_element(normalizedFaceList.begin(), normalizedFaceList.end(), [](const auto& a, const auto& b) { return a.let+a.lap+a.srtt < b.let+b.lap+b.srtt; });
+    NFD_LOG_DEBUG("Selected Next Hop="<<it->face->getId()<<", LET="<<it->let<<", LAP="<<it->lap<<", SRTT="<<it->srtt);
+    return it != normalizedFaceList.end() ? it->face : nullptr;
 }
+
+std::vector<MINE::FaceStats>
+MINE::customNormalize(std::vector<FaceStats>& faceList) {
+    double letSum=0, lapSum=0, srttSum=0;
+    std::vector<FaceStats> normalizedFaceList;
+    for (const auto& faceStats: faceList) {
+        letSum += pow(faceStats.let, 2);
+        lapSum += pow(faceStats.lap, 2);
+        srttSum += pow(faceStats.srtt, 2);
+    }
+    for (auto& faceStats : faceList) {
+        Face* face = faceStats.face;
+        double let =  letSum>0 ? 1.0/3.0 * faceStats.let / sqrt(letSum) : 0;
+        double lap = lapSum>0?  1.0/3.0 * faceStats.lap / sqrt(lapSum) : 0;
+        double srtt = srttSum>0?  1.0/3.0 * faceStats.srtt / sqrt(srttSum) : -1;
+        normalizedFaceList.push_back({face, let, lap, srtt});
+        NFD_LOG_DEBUG("Face="<<face->getId()<<", nor_LET="<<let<<", nor_LAP="<<lap<<", nor_SRTT="<<srtt);
+    }
+    return normalizedFaceList;
+}
+
 
 bool
 MINE::isIntermediateNode(ns3::Ptr<ns3::Node> node, ns3::Ptr<ns3::Node> srcNode, ns3::Ptr<ns3::Node> desNode) {
@@ -360,20 +386,23 @@ MINE::calculateDensity(ns3::Ptr<ns3::Node> node){
 
 double
 MINE::calculateLET(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> revNode) {
+    if (!isInRegion(sendNode, revNode)) { return 0;}
     ns3::Ptr<ns3::MobilityModel> mobility1 = sendNode->GetObject<ns3::MobilityModel>();
 	ns3::Ptr<ns3::MobilityModel> mobility2 = revNode->GetObject<ns3::MobilityModel>();
     double m = mobility1->GetPosition().x - mobility2->GetPosition().x;
     double n = mobility1->GetPosition().y - mobility2->GetPosition().y;
-    double p = mobility1->GetVelocity().x - mobility2->GetVelocity().x + 0.0001;
-    double q = mobility1->GetVelocity().y - mobility2->GetVelocity().y + 0.0001;
+    double p = mobility1->GetVelocity().x - mobility2->GetVelocity().x;
+    double q = mobility1->GetVelocity().y - mobility2->GetVelocity().y;
+    if (p==0 && q==0) {return 1e6;} //相对速度为0时，用1e6表示无限大
     double let = (-(m*p+n*q)+sqrt((pow(p,2)+pow(q,2))*pow(Rth,2) - pow(n*p-m*q, 2)) ) / (pow(p,2)+pow(q,2));
     return let;
 }
 
 double
 MINE::calculateLAP(double t, double delta_t) {
-    double lambda = 10, eplison=0;
-    double L = (1.0-exp(-2*lambda*t)) * (1.0/(2*lambda*t) + eplison) + 0.5*lambda*t*exp(-2*lambda*t);
+    if (t==0) {return 0;}
+    double lambda = 10;
+    double L = (1.0-exp(-2*lambda*t)) * (1.0/(2*lambda*t)) + 0.5*lambda*t*exp(-2*lambda*t);
     double prob = delta_t <= t ?  (1.0-(1.0-L)/t * delta_t) : L/(log(delta_t-t+1)+1);
     return prob;
 }

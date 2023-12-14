@@ -3,7 +3,7 @@
 
 #include "ns3/ndnSIM/model/ndn-l3-protocol.hpp"
 #include "ns3/ndnSIM/NFD/daemon/fw/strategy.hpp"
-#include "ns3/ndnSIM/NFD/daemon/fw/process-nack-traits.hpp"
+// #include "ns3/ndnSIM/NFD/daemon/fw/process-nack-traits.hpp"
 #include "ns3/ndnSIM/NFD/daemon/fw/retx-suppression-exponential.hpp"
 #include "mine-measurements.hpp"
 #include "ns3/node-container.h"
@@ -13,7 +13,7 @@ namespace nfd {
 namespace fw {
 namespace mine {
 
-class MINE : public Strategy, public ProcessNackTraits<MINE>
+class MINE : public Strategy
 {
 struct  weightTableEntry {
 	ns3::Ptr<ns3::Node> node;
@@ -31,6 +31,14 @@ struct  neighborTableEntry {
     double LET;
     double linkProb;
 	neighborTableEntry(ns3::Ptr<ns3::Node> n, ns3::Vector3D pos, ns3::Vector3D vel, double let, double prob) : node(n), position(pos), velocity(vel), LET(let), linkProb(prob) {}
+};
+
+struct FaceStats
+{
+  Face* face;
+  double let;
+  double lap;
+  double srtt;
 };
 
 public:
@@ -71,8 +79,8 @@ public:
     unicastPathBuilding(const ndn::Name prefix, ns3::Ptr<ns3::Node> srcNode, ns3::Ptr<ns3::Node> providerNode);
 
     /*在FIB中选择下一跳*/
-    nfd::fib::NextHop
-    selectFIB(ns3::Ptr<ns3::Node> localNode, const fib::NextHopList& nexthops);
+    Face*
+    selectFIB(ns3::Ptr<ns3::Node> localNode, const Interest& interest, const fib::NextHopList& nexthops, const fib::Entry& fibEntry);
 
     /*更新当前节点的FIB，周期性触发*/
     void
@@ -102,6 +110,28 @@ public:
     double
     calculateLAP(double t, double delta_t);
 
+
+    /*归一化DL*/
+    std::vector<FaceStats>
+    customNormalize(std::vector<FaceStats>& decisionList);
+
+    /*计算正理想解*/
+    FaceStats&
+    calculateIdealSolution(std::vector<FaceStats>& decisionList);
+
+    /*计算负理想解*/
+    FaceStats&
+    calculateNegativeIdealSolution(std::vector<FaceStats>& decisionList);
+
+    /*计算最终的权重*/
+    double
+    calculateCloseness(const FaceStats& entry, const FaceStats& idealSolution, const FaceStats& negativeIdealSolution);
+
+    /*得到最优解*/
+    FaceStats&
+    getOptimalDecision(std::vector<FaceStats>& decisionList, const FaceStats& idealSolution, const FaceStats& negativeIdealSolution);
+
+
     /*判断是否在通信范围*/
     bool
     isInRegion(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> recvNode);
@@ -127,19 +157,15 @@ private:
     static const double Beta;
 
 	ns3::NodeContainer m_nodes;
-    bool m_isContentDiscovery = false;
-	std::vector<MINE::weightTableEntry> m_WT;
+	// std::vector<MINE::weightTableEntry> m_WT;
 	std::vector<MINE::neighborTableEntry> m_NT;
     std::vector<ns3::Ptr<ns3::Node>> m_CPT;
+
+    MineMeasurements m_measurements;
 
 	PUBLIC_WITH_TESTS_ELSE_PRIVATE : static const time::milliseconds RETX_SUPPRESSION_INITIAL;
 	static const time::milliseconds RETX_SUPPRESSION_MAX;
 	RetxSuppressionExponential m_retxSuppression;
-
-  Forwarder& m_forwarder;
-    MineMeasurements m_measurements;
-
-	friend ProcessNackTraits<MINE>;
 
 };
 

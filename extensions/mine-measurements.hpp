@@ -83,9 +83,6 @@ private:
   // Timeout associated with measurement
   scheduler::ScopedEventId m_measurementExpiration;
   friend class NamespaceInfo;
-
-  // RTO associated with Interest
-  scheduler::ScopedEventId m_timeoutEvent;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
