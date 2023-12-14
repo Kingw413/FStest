@@ -268,20 +268,23 @@ MUPF::calculateDensity(ns3::Ptr<ns3::Node> node){
 
 double
 MUPF::calculateLET(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> revNode) {
+    if (!isInRegion(sendNode, revNode)) { return 0;}
     ns3::Ptr<ns3::MobilityModel> mobility1 = sendNode->GetObject<ns3::MobilityModel>();
 	ns3::Ptr<ns3::MobilityModel> mobility2 = revNode->GetObject<ns3::MobilityModel>();
     double m = mobility1->GetPosition().x - mobility2->GetPosition().x;
     double n = mobility1->GetPosition().y - mobility2->GetPosition().y;
-    double p = mobility1->GetVelocity().x - mobility2->GetVelocity().x + 0.0001;
-    double q = mobility1->GetVelocity().y - mobility2->GetVelocity().y + 0.0001;
+    double p = mobility1->GetVelocity().x - mobility2->GetVelocity().x;
+    double q = mobility1->GetVelocity().y - mobility2->GetVelocity().y;
+    if (p==0 && q==0) {return 1e6;} //相对速度为0时，用1e6表示无限大
     double let = (-(m*p+n*q)+sqrt((pow(p,2)+pow(q,2))*pow(Rth,2) - pow(n*p-m*q, 2)) ) / (pow(p,2)+pow(q,2));
     return let;
 }
 
 double
 MUPF::calculateLAP(double t, double delta_t) {
-    double lambda = 10, eplison=0;
-    double L = (1.0-exp(-2*lambda*t)) * (1.0/(2*lambda*t) + eplison) + 0.5*lambda*t*exp(-2*lambda*t);
+    if (t==0) {return 0;}
+    double lambda = 10;
+    double L = (1.0-exp(-2*lambda*t)) * (1.0/(2*lambda*t)) + 0.5*lambda*t*exp(-2*lambda*t);
     double prob = delta_t <= t ?  (1.0-(1.0-L)/t * delta_t) : L/(log(delta_t-t+1)+1);
     return prob;
 }
