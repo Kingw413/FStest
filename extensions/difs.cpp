@@ -70,13 +70,13 @@ void DIFS::afterReceiveInterest(const FaceEndpoint &ingress, const Interest &int
     ns3::Ptr<ns3::Node> sendNode = m_nodes[sendNodeId];
 
     this->updateNeighborList(receiveNode);
-    this->calculateDecisionList(sendNode,receiveNode);
-    this->customNormalize(m_DecisionList);
+    std::vector<DecisionEntry> decisionList = this->calculateDecisionList(sendNode,receiveNode);
+    this->customNormalize(decisionList);
 
-    DecisionEntry idealSolution = this->calculateIdealSolution(m_DecisionList);
-    DecisionEntry negIdealSolution = this->calculateNegativeIdealSolution(m_DecisionList);
+    DecisionEntry idealSolution = this->calculateIdealSolution(decisionList);
+    DecisionEntry negIdealSolution = this->calculateNegativeIdealSolution(decisionList);
 
-    DecisionEntry optimalDecision = this->getOptimalDecision(m_DecisionList, idealSolution, negIdealSolution);
+    DecisionEntry optimalDecision = this->getOptimalDecision(decisionList, idealSolution, negIdealSolution);
 
     if (optimalDecision.node->GetId() == receiveNode->GetId()) {
         NFD_LOG_INFO("do send " << interest << " from=" << ingress << " to=" << egress);
@@ -125,7 +125,7 @@ DIFS::calculateLET(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> revNode) {
     return let;
 }
 
-void 
+std::vector<DIFS::DecisionEntry>
 DIFS::calculateDecisionList(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> receiveNode) {
     ns3::Ptr<ns3::MobilityModel> mobility1 = sendNode->GetObject<ns3::MobilityModel>();
 	ns3::Ptr<ns3::MobilityModel> mobility2 = receiveNode->GetObject<ns3::MobilityModel>(); 
@@ -133,6 +133,7 @@ DIFS::calculateDecisionList(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> re
     double y_c = mobility1->GetPosition().y;
     double x_r = mobility2->GetPosition().x;
     double y_r = mobility2->GetPosition().y;
+    std::vector<DecisionEntry> decisionList;
     for (auto& neighEntry: m_NeighborList) {
         double distance = this->calculateDistance(sendNode, neighEntry.node);
         bool shouldInDL = false;
@@ -143,10 +144,11 @@ DIFS::calculateDecisionList(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> re
             double relativeVel = this->calculateRelativeVel(sendNode, neighEntry.node);
             double let = this->calculateLET(sendNode, neighEntry.node);
             DIFS::DecisionEntry decisionEntry(neighEntry.node, distance, relativeVel, let);
-            m_DecisionList.push_back(decisionEntry);
+            decisionList.push_back(decisionEntry);
             NFD_LOG_DEBUG(neighEntry.node->GetId()<<", "<<distance<<", "<<relativeVel<<", "<<let);
         }
     }
+    return decisionList;
 }
 
 std::vector<DIFS::DecisionEntry>&
@@ -161,7 +163,7 @@ DIFS::customNormalize(std::vector<DIFS::DecisionEntry>& decisionList) {
         decisionEntry.Distance = 1.0/3.0 * decisionEntry.Distance / sqrt(distanceSum+0.001);
         decisionEntry.RelativeVel = 1.0/3.0 * decisionEntry.RelativeVel / sqrt(velSum+0.001);
         decisionEntry.LET = 1.0/3.0 * decisionEntry.LET / sqrt(letSum+0.001);
-                NFD_LOG_DEBUG("NODE="<<decisionEntry.node->GetId()<<", D="<<decisionEntry.Distance<<", S="<<decisionEntry.RelativeVel<<", L="<<decisionEntry.LET);
+        NFD_LOG_DEBUG("Node="<<decisionEntry.node->GetId()<<", D="<<decisionEntry.Distance<<", S="<<decisionEntry.RelativeVel<<", L="<<decisionEntry.LET);
     }
     return decisionList;
 }
@@ -174,7 +176,7 @@ DIFS::calculateIdealSolution(std::vector<DIFS::DecisionEntry>& decisionList) {
         ( std::min_element(decisionList.begin(), decisionList.end(), [](const auto& a, const auto& b) { return a.RelativeVel < b.RelativeVel; }) )->RelativeVel,
         ( std::max_element(decisionList.begin(), decisionList.end(), [](const auto& a, const auto& b) { return a.LET < b.LET; }) )->LET
     );
-NFD_LOG_DEBUG("Ideal: D="<<idealSolution.Distance<<", S="<<idealSolution.RelativeVel<<", L="<<idealSolution.LET);
+    NFD_LOG_DEBUG("Ideal: D="<<idealSolution.Distance<<", S="<<idealSolution.RelativeVel<<", L="<<idealSolution.LET);
     return idealSolution;
 }
 
@@ -186,7 +188,7 @@ DIFS::calculateNegativeIdealSolution(std::vector<DIFS::DecisionEntry>& decisionL
         std::max_element(decisionList.begin(), decisionList.end(), [](const auto& a, const auto& b) { return a.RelativeVel < b.RelativeVel; })->RelativeVel,
         std::min_element(decisionList.begin(), decisionList.end(), [](const auto& a, const auto& b) { return a.LET < b.LET; })->LET
     );
-NFD_LOG_DEBUG("Neg: D="<<negativeIdealSolution.Distance<<", S="<<negativeIdealSolution.RelativeVel<<", L="<<negativeIdealSolution.LET);
+    NFD_LOG_DEBUG("Neg: D="<<negativeIdealSolution.Distance<<", S="<<negativeIdealSolution.RelativeVel<<", L="<<negativeIdealSolution.LET);
 
     return negativeIdealSolution;
 }
@@ -219,7 +221,7 @@ DIFS::getOptimalDecision(std::vector<DIFS::DecisionEntry>& decisionList, const D
         closenessValues.push_back(closeness);
     }
     size_t optIndex = std::distance(closenessValues.begin(), std::max_element(closenessValues.begin(), closenessValues.end()));
-    DecisionEntry optimalDecision = m_DecisionList[optIndex];
+    DecisionEntry optimalDecision = decisionList[optIndex];
     NFD_LOG_DEBUG("Optimal Decision = "<<optimalDecision.node->GetId());
     return optimalDecision;
 }
@@ -228,15 +230,30 @@ void
 DIFS::updateNeighborList(ns3::Ptr<ns3::Node> localNode) {
     for (auto& node : m_nodes) {
         double distance = calculateDistance(node, localNode);
-        if (distance < m_Rth) {
-	        ns3::Ptr<ns3::MobilityModel> mobility = node->GetObject<ns3::MobilityModel>(); 
-            double x = mobility->GetPosition().x;
-            double y = mobility->GetPosition().y;
-            double v_x = mobility->GetVelocity().x;
-            double v_y = mobility->GetVelocity().y;
-            DIFS::NeighborEntry entry(node, x, y, v_x, v_y);
-            m_NeighborList.push_back(entry);
+        auto it  = std::find_if(m_NeighborList.begin(), m_NeighborList.end(),
+                        [&](const NeighborEntry& entry) { return entry.node == node; });
+        if (distance>m_Rth) { 
+            if (it!=m_NeighborList.end()) {
+                m_NeighborList.erase(it);
+            }
+            continue;
         }
+
+	    ns3::Ptr<ns3::MobilityModel> mobility = node->GetObject<ns3::MobilityModel>(); 
+        double x = mobility->GetPosition().x;
+        double y = mobility->GetPosition().y;
+        double v_x = mobility->GetVelocity().x;
+        double v_y = mobility->GetVelocity().y;
+        DIFS::NeighborEntry entry(node, x, y, v_x, v_y);
+
+        if (it != m_NeighborList.end()) {
+            it->x = x;
+            it->y = y;
+            it->v_x = v_x;
+            it->v_y = v_y;
+        }
+        else
+            m_NeighborList.push_back(entry);
     }
 }
 

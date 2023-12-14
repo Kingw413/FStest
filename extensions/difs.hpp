@@ -56,7 +56,7 @@ public:
     calculateLET(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> revNode);
 
     /*计算DL*/
-    void
+    std::vector<DecisionEntry>
     calculateDecisionList(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> receivenode);
 
     /*归一化DL*/
@@ -97,7 +97,7 @@ private:
 	ns3::NodeContainer m_nodes;
 	double m_Rth;
     std::vector<NeighborEntry> m_NeighborList;
-    std::vector<DecisionEntry> m_DecisionList;
+    // std::vector<DecisionEntry> m_DecisionList;
 };
 
 } // namespace fw
