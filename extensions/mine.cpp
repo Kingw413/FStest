@@ -294,11 +294,10 @@ MINE::selectFIB(ns3::Ptr<ns3::Node> localNode, const Interest& interest, const f
 
         FaceInfo* info = m_measurements.getFaceInfo(fibEntry, interest, nexthop.getFace().getId());
         if (info == nullptr) {
-            faceList.push_back({&nexthop.getFace(),
-                            let, link_prob, -1});
+            faceList.push_back({&nexthop.getFace(),let, link_prob, -1});
         }
         else {
-            double srtt = boost::chrono::duration_cast<boost::chrono::duration<double>>(info->getSrtt()).count();
+            double srtt = 10 - boost::chrono::duration_cast<boost::chrono::duration<double>>(info->getSrtt()).count(); // 正向化处理SRTT指标
             faceList.push_back({&nexthop.getFace(),let, link_prob, srtt});
             NFD_LOG_DEBUG("Face="<<nexthop.getFace().getId()<<", LET="<<let<<", LAP="<<link_prob<<", SRTT="<<srtt);
         }
