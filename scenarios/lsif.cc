@@ -1,6 +1,3 @@
-#include "ns3/vector.h"
-#include "ns3/string.h"
-#include "ns3/double.h"
 #include "ns3/config.h"
 #include "ns3/log.h"
 #include "ns3/command-line.h"
@@ -30,7 +27,6 @@
 #include "ns3/ns2-mobility-helper.h"
 #include "ns3/ndnSIM-module.h"
 #include "ns3/ndnSIM/NFD/daemon/face/face-common.hpp"
-#include "ns3/ndnSIM/apps/ndn-consumer-batches.hpp"
 #include "ns3/ndnSIM/apps/ndn-producer.hpp"
 #include "ns3/ndnSIM/helper/ndn-link-control-helper.hpp"
 #include "ns3/ndnSIM/helper/ndn-global-routing-helper.hpp"
@@ -46,13 +42,18 @@ NS_LOG_COMPONENT_DEFINE("WifiSimpleOcb");
 
 namespace ns3
 {
-
-	int main(int argc, char *argv[])
+	int main(int num, int id1, int id2, string trace,string delay_log)
 	{
-		std::string phyMode("OfdmRate6Mbps");
+		uint32_t N = num;
+		uint32_t ConsumerId = id1;
+		uint32_t ProducerId = id2;
+		string MobilityTrace = trace;
+		string DelayTrace = delay_log;
 
 		NodeContainer nodes;
-		nodes.Create(3);
+		nodes.Create(N);
+		
+		std::string phyMode("OfdmRate6Mbps");
 
 		YansWifiPhyHelper wifiPhy;
 		YansWifiChannelHelper channelHelper = YansWifiChannelHelper::Default();
@@ -75,57 +76,21 @@ namespace ns3
 
 		NetDeviceContainer devices = wifi80211p.Install(wifiPhy, wifi80211pMac, nodes);
 
-		// Ns2MobilityHelper ns2Mobiity = Ns2MobilityHelper("/home/whd/ndnSIM2.8/wireless-macspec/scenarios/manhattan.tcl");
-		// ns2Mobiity.Install();
-		// Ptr<ListPositionAllocator> positionAlloc =
-		// 	CreateObject<ListPositionAllocator>();
-		// positionAlloc->Add(Vector(0, 0, 0));
-		// positionAlloc->Add(Vector(40, 0, 0));
-		// positionAlloc->Add(Vector(80, 0, 0));
-		// positionAlloc->Add(Vector(150, 0, 0));
-
-		// MobilityHelper mobility_STA;
-		// mobility_STA.SetPositionAllocator(positionAlloc);
-		// mobility_STA.SetMobilityModel("ns3::ConstantPositionMobilityModel");
-		// mobility_STA.Install(nodes);
-
-	for (const auto& node:nodes) {
-		    Ptr<ConstantVelocityMobilityModel> mobility = CreateObject<ConstantVelocityMobilityModel>();
-	mobility->SetPosition(Vector(40*node->GetId(),0,0));
-    mobility->SetVelocity(Vector(10, 0, 0));
-		node->AggregateObject(mobility);
-	}
-
-	// ConstantVelocityHelper mob;
-	// mob.SetVelocity(Vector3D(10,0,0));
-	
-
-		//   Ptr<ListPositionAllocator> positionAlloc =
-		//     CreateObject<ListPositionAllocator>();
-		// positionAlloc->Add(Vector(0, 0, 0));
-		// positionAlloc->Add(Vector(50, 0, 0));
-		// positionAlloc->Add(Vector(90, 0, 0));
-		// positionAlloc->Add(Vector(160, 0, 0));
-
-		// MobilityHelper mobility_STA;
-		// mobility_STA.SetPositionAllocator(positionAlloc);
-		// mobility_STA.SetMobilityModel("ns3::ConstantPositionMobilityModel");
-		// mobility_STA.Install(nodes);
+		Ns2MobilityHelper ns2Mobiity = Ns2MobilityHelper(MobilityTrace);
+		ns2Mobiity.Install();
 
 		// Install NDN stack on all nodes
-		extern shared_ptr<::nfd::Face> WifiApStaDeviceCallback(
+		extern shared_ptr<::nfd::Face> WifiApStaDeviceBroadcastCallback(
 			Ptr<Node> node, Ptr<ndn::L3Protocol> ndn, Ptr<NetDevice> device);
 		ndn::StackHelper ndnHelper;
 		ndnHelper.AddFaceCreateCallback(WifiNetDevice::GetTypeId(),
-										MakeCallback(&WifiApStaDeviceCallback));
-		// ndnHelper.SetLinkDelayAsFaceMetric();
-		// ndnHelper.SetDefaultRoutes(true);
+										MakeCallback(&WifiApStaDeviceBroadcastCallback));
 
-		ndnHelper.setCsSize(20);
+		ndnHelper.setCsSize(100);
 		ndnHelper.InstallAll();
 		std::cout << "Install stack\n";
 
-		ndn::StrategyChoiceHelper::InstallAll("/", "/localhost/nfd/strategy/MINE/%FD%01");
+		ndn::StrategyChoiceHelper::InstallAll("/", "/localhost/nfd/strategy/LSIF/%FD%01");
 
 		// Installing Consumer
 		ndn::AppHelper consumerHelper("ns3::ndn::ConsumerCbr");
@@ -139,28 +104,24 @@ namespace ns3
 		// consumerHelper.SetAttribute("s", StringValue("0.7"));
 		consumerHelper.SetPrefix("/ustc");
 		NodeContainer consumerContainer;
-		consumerContainer.Add(nodes[0]);
-		// consumerContainer.Add(nodes[2]);
+		consumerContainer.Add(nodes[ConsumerId]);
 		consumerHelper.Install(consumerContainer);
-		std::cout << "Install consumer\n";
 
 		// Installing Producer
 		ndn::AppHelper producer("ns3::ndn::Producer");
 		producer.SetPrefix("/ustc");
 		producer.SetAttribute("PayloadSize", UintegerValue(1024));
-		NodeContainer producercontainer;
-		// producercontainer.Add(nodes[3]);	
-		producercontainer.Add(nodes[2]);	
-		producer.Install(producercontainer);
-		std::cout << "Install producer\n";
-		std::cout << "Install consumers in " << consumerContainer.GetN()
-				  << " nodes and producers in " << producercontainer.GetN()
-				  << " nodes" << std::endl;
+		NodeContainer producerContainer;
+		producerContainer.Add(nodes[ProducerId]);	
+		producer.Install(producerContainer);
+		std::cout << "Install "<<consumerContainer.GetN()<<" consumers in node=" << ConsumerId
+				  << " and "<<producerContainer.GetN()<<" producers in node=" << ProducerId
+				  << std::endl;
 
-		ndn::AppDelayTracer::Install(nodes[0], "results/delay_vndn.log");
+		ndn::AppDelayTracer::Install(nodes[ConsumerId], DelayTrace);
 		// ndn::CsTracer::InstallAll("results/cs_prfs.log", MilliSeconds(1000));
 
-		Simulator::Stop(Seconds(10));
+		Simulator::Stop(Seconds(300));
 		Simulator::Run();
 		Simulator::Destroy();
 		std::cout << "end" << std::endl;
@@ -168,4 +129,19 @@ namespace ns3
 	}
 }
 
-int main(int argc, char *argv[]) { return ns3::main(argc, argv); }
+int main(int argc, char *argv[]) { 
+    // 创建命令行对象
+    ns3::CommandLine cmd;
+	int num, id1, id2;
+	string trace, log, delay_log;
+    // 添加自定义参数
+    cmd.AddValue("num", "Description for number of nodes parameter", num);
+    cmd.AddValue("id1", "Description for consumer node id parameter", id1);
+    cmd.AddValue("id2", "Description for producer node id  parameter", id2);
+    cmd.AddValue("trace", "Description for mobility trace  parameter", trace);
+    cmd.AddValue("delay_log", "Description for delay log parameter", delay_log);
+
+    // 解析命令行参数
+    cmd.Parse(argc, argv);
+	
+	return ns3::main(num, id1, id2, trace,delay_log); }

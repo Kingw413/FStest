@@ -58,13 +58,13 @@ public:
 
 	/*查找WaitTable中是否已有相同的<Interest, Nonce>*/
 	std::vector<DASB::m_tableEntry>::iterator
-	findEntry(const Name &targetName, uint32_t targetNonce);
+	findEntry(const Name &targetName, uint32_t targetNonce, std::vector<m_tableEntry>& table);
 
 	/*在WaitTable中添加新表项
 	* 当findEntry判断为否时触发
 	*/
 	void
-	addEntry(const Name &name, uint32_t nonce, ns3::Ptr<ns3::Node> preNode, ns3::Time deferTime, ns3::EventId eventId, bool IntOrDat);
+	addEntry(const Name &name, uint32_t nonce, ns3::Ptr<ns3::Node> preNode, ns3::Time deferTime, ns3::EventId eventId, std::vector<m_tableEntry>& table);
 
 	/**删除WaitTable中的某表项
 	*   当findEntry判断为真或收到相应Data包时触发
@@ -72,7 +72,7 @@ public:
 	// void
 	// deleteEntry(const Name &targetName, uint32_t targetNonce);
 	void
-	deleteEntry(std::vector<DASB::m_tableEntry>::iterator it, bool IntOrDat);
+	deleteEntry(std::vector<DASB::m_tableEntry>::iterator it, std::vector<m_tableEntry>& table);
 
 	/* 计算等待转发的延迟时间*/
 	double

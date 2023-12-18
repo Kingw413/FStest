@@ -1,102 +1,49 @@
-#!/usr/bin/env python
-# -*- Mode: python; py-indent-offset: 4; indent-tabs-mode: nil; coding: utf-8; -*-
-
-from subprocess import call
-from sys import argv
 import os
-import subprocess
-import workerpool
-import multiprocessing
-import argparse
+import re
+import random
 
-######################################################################
-######################################################################
-######################################################################
+# 定义文件夹路径
+folder_path = 'mobility-traces/1.2_highway_changeNum/highway_v=90_n'
 
-parser = argparse.ArgumentParser(description='Simulation runner')
-parser.add_argument('scenarios', metavar='scenario', type=str, nargs='*',
-                    help='Scenario to run')
+# 定义需要赋值的变量（strategy）
+strategy_values = ['vndn', 'dasb', 'lsif', 'lisic', 'difs', 'mupf', 'prfs', 'mine']  # 用实际的策略值替换
 
-parser.add_argument('-l', '--list', dest="list", action='store_true', default=False,
-                    help='Get list of available scenarios')
+# 定义正则表达式模式
+filename_pattern1 = re.compile(r'highway_n=(\d+)_v=(\d+)\.tcl')
+filename_pattern2 = re.compile(r'highway_n=(\d+)_var=(\d+)\.tcl')
 
-parser.add_argument('-s', '--simulate', dest="simulate", action='store_true', default=False,
-                    help='Run simulation and postprocessing (false by default)')
+# 遍历文件夹下所有文件
+for filename in os.listdir(folder_path):
+    if os.path.isfile(os.path.join(folder_path, filename)):
+        # 使用正则表达式匹配文件名中的 'n' 和 'v' 值
+        match1 = filename_pattern1.match(filename)
+        match2 = filename_pattern2.match(filename)
+        if match1:
+            a = True
+            n_value = match1.group(1)
+            v_value = match1.group(2)
+        if match2:
+            a =False
+            n_value = match2.group(1)
+            var_value = match2.group(2)
 
-parser.add_argument('-g', '--no-graph', dest="graph", action='store_false', default=True,
-                    help='Do not build a graph for the scenario (builds a graph by default)')
+        trace = os.path.join(folder_path, filename)
+        # 对每个文件循环调用程序20次
+        for i in range(1, 11):
+            # 生成两个不相同的随机整数
+            random_integers = random.sample(range(0, int(n_value)), 2)
+            # 分别获取两个随机整数
+            consumer = random_integers[0]
+            producer = random_integers[1]
+            for strategy in strategy_values:
+                if a:
+                    logfile = f"logs/1.2_highway_changeNum/n{n_value}_v{v_value}/{strategy}_run{i}.log"
+                    delayfile = f"logs/1.2_highway_changeNum/n{n_value}_v{v_value}/{strategy}_delay_run{i}.log"
+                else:
+                    logfile = f"logs/n{n_value}_var{var_value}_{strategy}_run{i}.log"
+                    delayfile = f"logs/n{n_value}_var{var_value}_{strategy}_delay_run{i}.log"
 
-args = parser.parse_args()
-
-if not args.list and len(args.scenarios)==0:
-    print ("ERROR: at least one scenario need to be specified")
-    parser.print_help()
-    exit (1)
-
-if args.list:
-    print ("Available scenarios: ")
-else:
-    if args.simulate:
-        print( "Simulating the following scenarios: " + ",".join (args.scenarios))
-
-    if args.graph:
-        print ("Building graphs for the following scenarios: " + ",".join (args.scenarios))
-
-######################################################################
-######################################################################
-######################################################################
-
-class SimulationJob (workerpool.Job):
-    "Job to simulate things"
-    def __init__ (self, cmdline):
-        self.cmdline = cmdline
-    def run (self):
-        print (" ".join (self.cmdline))
-        subprocess.call (self.cmdline)
-
-pool = workerpool.WorkerPool(size = multiprocessing.cpu_count())
-
-class Processor:
-    def run (self):
-        if args.list:
-            print ("    " + self.name)
-            return
-
-        if "all" not in args.scenarios and self.name not in args.scenarios:
-            return
-
-        if args.list:
-            pass
-        else:
-            if args.simulate:
-                self.simulate ()
-                pool.join ()
-                self.postprocess ()
-            if args.graph:
-                self.graph ()
-
-    def graph (self):
-        subprocess.call ("./graphs/%s.R" % self.name, shell=True)
-
-class Scenario (Processor):
-    def __init__ (self, name):
-        self.name = name
-        # other initialization, if any
-
-    def simulate (self):
-        cmdline = ["./build/SCENARIO_TO_RUN"]
-        job = SimulationJob (cmdline)
-        pool.put (job)
-
-    def postprocess (self):
-        # any postprocessing, if any
-        pass
-
-try:
-    # Simulation, processing, and graph building
-    fig = Scenario (name="NAME_TO_CONFIGURE")
-    fig.run ()
-
-finally:
-    pool.join ()
-    pool.shutdown ()
+                command = f'NS_LOG=ndn-cxx.nfd.{strategy.upper()}:ndn.Producer ./waf --run "{strategy} --num={n_value} --id1={consumer} --id2={producer} --trace={trace}  --delay_log={delayfile}"> {logfile} 2>&1'
+                os.system(command)
+        print(f"n={n_value}_v={v_value}仿真结束")
+print("批处理任务完成。")

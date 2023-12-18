@@ -26,10 +26,6 @@ public:
 	void
 	afterReceiveData(const shared_ptr<pit::Entry> &pitEntry,
 					const FaceEndpoint &ingress, const Data &data) override;
-					
-	/*判断是否在通信范围内*/
-	bool
-	isInRegion(const FaceEndpoint &ingress);
 
     /*计算LET*/
     double

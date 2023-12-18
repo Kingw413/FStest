@@ -22,7 +22,7 @@ namespace mine {
 NFD_LOG_INIT(MINE);
 NFD_REGISTER_STRATEGY(MINE);
 
-const double MINE::Rth(100.0);
+const double MINE::Rth(500.0);
 const double MINE::Mu(0.33);
 const double MINE::Phi(0.33);
 const double MINE::Omega(0.33); 

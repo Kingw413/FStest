@@ -1,7 +1,7 @@
 #include "lsif.hpp"
 #include "ns3/ndnSIM/NFD/daemon/fw/algorithm.hpp"
 #include "common/logger.hpp"
-#include "ndn-wifi-net-device-transport.hpp"
+#include "ndn-wifi-net-device-transport-broadcast.hpp"
 #include "ns3/mobility-model.h"
 #include "ns3/ndnSIM/model/ndn-l3-protocol.hpp"
 #include "ns3/ndnSIM/apps/ndn-producer.hpp"
@@ -21,7 +21,7 @@ LSIF::LSIF(Forwarder &forwarder, const Name &name)
 	  m_retxSuppression(RETX_SUPPRESSION_INITIAL, RetxSuppressionExponential::DEFAULT_MULTIPLIER,
 						RETX_SUPPRESSION_MAX),
 	  m_forwarder(forwarder),
-	  m_nodes(ns3::NodeContainer::GetGlobal()), m_Rth(100.0), m_LET_alpha(5.0)
+	  m_nodes(ns3::NodeContainer::GetGlobal()), m_Rth(500.0), m_LET_alpha(5.0)
 {
 	ParsedInstanceName parsed = parseInstanceName(name);
 	if (!parsed.parameters.empty())
@@ -62,7 +62,7 @@ void LSIF::afterReceiveInterest(const FaceEndpoint &ingress, const Interest &int
 	}
 
     const auto transport = ingress.face.getTransport();
-    ns3::ndn::WifiNetDeviceTransport *wifiTrans = dynamic_cast<ns3::ndn::WifiNetDeviceTransport *>(transport);
+    ns3::ndn::WifiNetDeviceTransportBroadcast *wifiTrans = dynamic_cast<ns3::ndn::WifiNetDeviceTransportBroadcast *>(transport);
     ns3::Ptr<ns3::Node> receiveNode = wifiTrans->GetNode();
     // 节点创建的face是从257开始依据节点序号依次递增的，据此计算face对端节点的序号
     int sendNodeId = (ingress.face.getId() - 257) + (receiveNode->GetId() + 257 <= ingress.face.getId());
@@ -95,25 +95,9 @@ LSIF::caculateLET(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> revNode) {
     double n = mobility1->GetPosition().y - mobility2->GetPosition().y;
     double p = mobility1->GetVelocity().x - mobility2->GetVelocity().x;
     double q = mobility1->GetVelocity().y - mobility2->GetVelocity().y;
-    double let = -(m*p+n*q)+sqrt((pow(p,2)+pow(q,2))*pow(m_Rth,2) - pow(n*p-m*q, 2)) / (pow(p,2)+pow(q,2)+0.0001); // 避免分母为1
-    return let;
-}
-
-bool
-LSIF::isInRegion(const FaceEndpoint &ingress) {
-    const auto transport = ingress.face.getTransport();
-    ns3::ndn::WifiNetDeviceTransport *wifiTrans = dynamic_cast<ns3::ndn::WifiNetDeviceTransport *>(transport);
-	if (wifiTrans==nullptr) {
-		return true;
-	}
-    ns3::Ptr<ns3::Node> receiveNode = wifiTrans->GetNode();
-    // 节点创建的face是从257开始依据节点序号依次递增的，据此计算face对端节点的序号
-    int sendNodeId = (ingress.face.getId() - 257) + (receiveNode->GetId() + 257 <= ingress.face.getId());
-    ns3::Ptr<ns3::Node> sendNode = m_nodes[sendNodeId];
-    ns3::Ptr<ns3::MobilityModel> mobility1 = sendNode->GetObject<ns3::MobilityModel>();
-	ns3::Ptr<ns3::MobilityModel> mobility2 = receiveNode->GetObject<ns3::MobilityModel>();
-	double distance = mobility2->GetDistanceFrom(mobility1);
-	return (distance<m_Rth);
+    if (p==0 && q==0) {return 1e6;} //相对速度为0时，用1e6表示无限大
+    double let = (-(m*p+n*q)+sqrt((pow(p,2)+pow(q,2))*pow(m_Rth,2) - pow(n*p-m*q, 2)) ) / (pow(p,2)+pow(q,2));
+	return let;
 }
 
 } // namespace fw

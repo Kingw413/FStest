@@ -141,8 +141,8 @@ void WifiNetDeviceTransportBroadcast::receiveFromNetDevice(
 
     auto mac_from = Mac48Address::ConvertFrom(from);
     auto mac_to = Mac48Address::ConvertFrom(to);
-    bool shouldup = (mac_from == remote_addr)&&(mac_to==local_addr);
-    // bool shouldup = (mac_from == remote_addr);
+    // bool shouldup = (mac_from == remote_addr)&&(mac_to==local_addr);
+    bool shouldup = (mac_from == remote_addr);
     if (shouldup) {
         NS_LOG_DEBUG(mac_from << " == " << remote_addr <<" & "<< mac_to<<" == "<<local_addr <<"? it is " << shouldup);
         this->receive(std::move(header.getBlock()));

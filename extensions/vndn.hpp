@@ -40,10 +40,6 @@ public:
 	afterReceiveLoopedInterest(const FaceEndpoint& ingress, const Interest& interest,
                     pit::Entry& pitEntry) override;
 
-	/*判断是否在通信范围内*/
-	bool
-	isInRegion(const FaceEndpoint &ingress);
-
 	/*执行发送*/
 	void doSend(const shared_ptr<pit::Entry> &pitEntry,
 				const FaceEndpoint &egress, const FaceEndpoint &ingress,
@@ -74,22 +70,6 @@ public:
 	/*取消转发*/
 	void
 	cancelSend(Interest interest, ns3::EventId eventId);
-
-	// std::map<uint32_t, std::vector<int>> &
-	// getHOP()
-	// {
-	// 	return m_hop;
-	// }
-
-	// void
-	// setHopList(uint32_t nonce, std::map<uint32_t, std::vector<int>> &, std::map<uint32_t, std::vector<int>> &hop, int hopId, int next_hopId);
-
-	// void
-	// updateHopList(nfd::face::Face &inface, nfd::face::Face &outface, const Interest &interest);
-
-	// void
-	// getHopCounts(const Interest &interest,
-	// 			 ns3::Ptr<ns3::Node> node);
 
 private:
 	friend ProcessNackTraits<VNDN>;

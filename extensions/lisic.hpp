@@ -40,10 +40,6 @@ public:
 	afterReceiveLoopedInterest(const FaceEndpoint& ingress, const Interest& interest,
                     pit::Entry& pitEntry) override;
 
-	/*判断是否在通信范围内*/
-	bool
-	isInRegion(const FaceEndpoint &ingress);
-
 	/*执行发送*/
 	void doSend(const shared_ptr<pit::Entry> &pitEntry,
 				const FaceEndpoint &egress, const FaceEndpoint &ingress,

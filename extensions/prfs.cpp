@@ -1,7 +1,7 @@
 #include "prfs.hpp"
 
 #include "common/logger.hpp"
-#include "ndn-wifi-net-device-transport.hpp"
+#include "ndn-wifi-net-device-transport-broadcast.hpp"
 #include "ns3/mobility-model.h"
 #include "ns3/ndnSIM/NFD/daemon/fw/algorithm.hpp"
 #include "ns3/ndnSIM/model/ndn-net-device-transport.hpp"
@@ -26,7 +26,7 @@ const time::milliseconds PRFS::RETX_SUPPRESSION_MAX(250);
 PRFS::PRFS(Forwarder& forwarder, const Name& name)
     : Strategy(forwarder),
       ProcessNackTraits(this),
-      m_Rth(100.0),
+      m_Rth(500.0),
       m_LET_alpha(1.0),
       m_nodes(ns3::NodeContainer::GetGlobal()),
       m_retxSuppression(RETX_SUPPRESSION_INITIAL,
@@ -62,7 +62,7 @@ void PRFS::afterReceiveInterest(const FaceEndpoint& ingress,
 	auto egress = FaceEndpoint(it->getFace(), 0);
 
     const auto transport = ingress.face.getTransport();
-    ns3::ndn::WifiNetDeviceTransport* wifiTrans = dynamic_cast<ns3::ndn::WifiNetDeviceTransport*>(transport);
+    ns3::ndn::WifiNetDeviceTransportBroadcast* wifiTrans = dynamic_cast<ns3::ndn::WifiNetDeviceTransportBroadcast*>(transport);
     // 到达producer则直接转发给上层app
     if (egress.face.getId() == 256+m_nodes.GetN()) {
         this->sendInterest(pitEntry, egress, interest);
@@ -122,7 +122,7 @@ PRFS::setNextHop(const fib::NextHopList& nexthops,
                             bool isConsumer){
 
     const auto transport = nexthops.begin()->getFace().getTransport();
-    ns3::ndn::WifiNetDeviceTransport* wifiTrans = dynamic_cast<ns3::ndn::WifiNetDeviceTransport*>(transport);
+    ns3::ndn::WifiNetDeviceTransportBroadcast* wifiTrans = dynamic_cast<ns3::ndn::WifiNetDeviceTransportBroadcast*>(transport);
     ns3::Ptr<ns3::Node> node = wifiTrans->GetNode();
     
     ns3::Ptr<ns3::Node> FIRD = nullptr;
@@ -202,8 +202,9 @@ PRFS::calculateLET(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> revNode) {
 	ns3::Ptr<ns3::MobilityModel> mobility2 = revNode->GetObject<ns3::MobilityModel>();
     double m = mobility1->GetPosition().x - mobility2->GetPosition().x;
     double n = mobility1->GetPosition().y - mobility2->GetPosition().y;
-    double p = mobility1->GetVelocity().x - mobility2->GetVelocity().x + 0.0001;
-    double q = mobility1->GetVelocity().y - mobility2->GetVelocity().y + 0.0001;
+    double p = mobility1->GetVelocity().x - mobility2->GetVelocity().x;
+    double q = mobility1->GetVelocity().y - mobility2->GetVelocity().y;
+    if (p==0 && q==0) {return 1e6;} //相对速度为0时，用1e6表示无限大
     double let = (-(m*p+n*q)+sqrt((pow(p,2)+pow(q,2))*pow(m_Rth,2) - pow(n*p-m*q, 2)) ) / (pow(p,2)+pow(q,2));
     return let;
 }
@@ -220,54 +221,6 @@ PRFS::caculateDR(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> receiveNode) 
     double dr = abs(eculid * cos(angle));
     return dr;
 }
-
-/* 
-void 
-PRFS::updateHopList(int preId, int curId, const Interest& interest) 
-{   
-    uint32_t nonce = interest.getNonce();
-    ns3::Ptr<ns3::Node> pre_node = m_nodes[preId];
-    ns3::Ptr<ns3::Node> node = m_nodes[curId];
-	ndn::Name prefix("/");
-	ns3::Ptr<ns3::ndn::L3Protocol> pre_ndn = pre_node->GetObject<ns3::ndn::L3Protocol>();
-	nfd::fw::Strategy& strategy1 = pre_ndn->getForwarder()->getStrategyChoice().findEffectiveStrategy(prefix);
-	nfd::fw::PRFS& prfs_strategy1 = dynamic_cast<nfd::fw::PRFS&>(strategy1);
-    ns3::Ptr<ns3::ndn::L3Protocol> ndn = node->GetObject<ns3::ndn::L3Protocol>();
-	nfd::fw::Strategy& strategy2 = ndn->getForwarder()->getStrategyChoice().findEffectiveStrategy(prefix);
-	nfd::fw::PRFS& prfs_strategy2 = dynamic_cast<nfd::fw::PRFS&>(strategy2);
-	std::map<uint32_t, std::vector<int>>& pre_hop = prfs_strategy1.getHOP();
-	std::map<uint32_t, std::vector<int>>& hop = prfs_strategy2.getHOP();
-    prfs_strategy2.setHopList(nonce, pre_hop, hop, curId);
-}
-
-void
-PRFS::setHopList(uint32_t nonce, std::map<uint32_t, std::vector<int>>& pre_hop, std::map<uint32_t, std::vector<int>>& hop, int hopId) {
-    if (pre_hop.find(nonce)==pre_hop.end()) {
-        pre_hop[nonce] = std::vector<int>{};
-    }
-    hop[nonce] = pre_hop[nonce];
-	hop[nonce].push_back(hopId);
-      std::ostringstream oss;
-  for (const auto& element : hop[nonce]) {
-    oss << element << " ";
-  }
-    NFD_LOG_INFO("HopList: "<<oss.str());
-}
-
-void
-PRFS::getHopCounts(const Interest& interest,
-                           		 ns3::Ptr<ns3::Node> node)
-{
-    uint32_t nonce = interest.getNonce();
-	ns3::Ptr<ns3::ndn::L3Protocol> ndn = node->GetObject<ns3::ndn::L3Protocol>();
-	ndn::Name prefix("/");
-	nfd::fw::Strategy& strategy = ndn->getForwarder()->getStrategyChoice().findEffectiveStrategy(prefix);
-	nfd::fw::PRFS& prfs_strategy = dynamic_cast<nfd::fw::PRFS&>(strategy);
-	std::map<uint32_t, std::vector<int>>& hop = prfs_strategy.getHOP();
-	std::vector<int> hop_list = hop[nonce];
-	NS_LOG_INFO("Interest="<<interest.getName()<<" Nonce="<<nonce<<" HopCounts="<<hop_list.size());
-} 
-*/
 
 }  // namespace fw
 }  // namespace nfd
