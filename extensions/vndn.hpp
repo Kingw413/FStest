@@ -12,7 +12,7 @@
 
 namespace nfd{
 namespace fw{
-class VNDN : public Strategy, public ProcessNackTraits<VNDN>
+class VNDN : public Strategy
 {
 struct m_tableEntry {
 	Name interestName;
@@ -58,8 +58,6 @@ public:
 	/**删除WaitTable中的某表项
 	*   当findEntry判断为真或收到相应Data包时触发
 	*/
-	// void
-	// deleteEntry(const Name &targetName, uint32_t targetNonce);
 	void
 	deleteEntry(std::vector<VNDN::m_tableEntry>::iterator it);
 
@@ -72,18 +70,15 @@ public:
 	cancelSend(Interest interest, ns3::EventId eventId);
 
 private:
-	friend ProcessNackTraits<VNDN>;
 	RetxSuppressionExponential m_retxSuppression;
 
 	PUBLIC_WITH_TESTS_ELSE_PRIVATE : static const time::milliseconds RETX_SUPPRESSION_INITIAL;
 	static const time::milliseconds RETX_SUPPRESSION_MAX;
 
 private:
-	Forwarder &m_forwarder;
 	ns3::NodeContainer m_nodes;
 	double m_Rth;
 	// std::map<uint32_t, std::vector<int>> m_hop;
-
 	std::vector<m_tableEntry> m_waitTable;
 
 };

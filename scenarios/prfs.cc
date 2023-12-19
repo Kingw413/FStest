@@ -42,11 +42,12 @@ NS_LOG_COMPONENT_DEFINE("WifiSimpleOcb");
 
 namespace ns3
 {
-	int main(int num, int id1, int id2, string trace, string delay_log)
+	int main(int num, int id1, int id2, double rate, string trace, string delay_log)
 	{
 		uint32_t N = num;
 		uint32_t ConsumerId = id1;
 		uint32_t ProducerId = id2;
+		uint32_t Rate = rate;
 		string MobilityTrace = trace;
 		string DelayTrace = delay_log;
 
@@ -94,7 +95,7 @@ namespace ns3
 		// Installing Consumer
 		ndn::AppHelper consumerHelper("ns3::ndn::ConsumerCbr");
 		// ndn::AppHelper consumerHelper("ns3::ndn::ConsumerTest");
-		consumerHelper.SetAttribute("Frequency", DoubleValue(1));
+		consumerHelper.SetAttribute("Frequency", DoubleValue(Rate));
 		consumerHelper.SetAttribute("Randomize", StringValue("none"));
 		// ndn::AppHelper consumerHelper("ns3::ndn::ConsumerZipfMandelbrot");
 		// consumerHelper.SetAttribute("Frequency", StringValue("10"));
@@ -120,7 +121,7 @@ namespace ns3
 		ndn::AppDelayTracer::Install(nodes[ConsumerId], DelayTrace);
 		// ndn::CsTracer::InstallAll("results/cs_prfs.log", MilliSeconds(1000));
 
-		Simulator::Stop(Seconds(300));
+		Simulator::Stop(Seconds(60));
 		Simulator::Run();
 		Simulator::Destroy();
 		std::cout << "end" << std::endl;
@@ -132,15 +133,17 @@ int main(int argc, char *argv[]) {
     // 创建命令行对象
     ns3::CommandLine cmd;
 	int num, id1, id2;
+	double rate;
 	string trace, log, delay_log;
     // 添加自定义参数
     cmd.AddValue("num", "Description for number of nodes parameter", num);
     cmd.AddValue("id1", "Description for consumer node id parameter", id1);
     cmd.AddValue("id2", "Description for producer node id  parameter", id2);
+    cmd.AddValue("rate", "Description for request rate  parameter", rate);
     cmd.AddValue("trace", "Description for mobility trace  parameter", trace);
     cmd.AddValue("delay_log", "Description for delay log parameter", delay_log);
 
     // 解析命令行参数
     cmd.Parse(argc, argv);
 	
-	return ns3::main(num, id1, id2, trace, delay_log); }
+	return ns3::main(num, id1, id2, rate, trace, delay_log); }

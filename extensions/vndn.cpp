@@ -6,6 +6,7 @@
 #include "ns3/ndnSIM/model/ndn-l3-protocol.hpp"
 #include "ns3/ndnSIM/apps/ndn-producer.hpp"
 #include "ns3/simulator.h"
+#include <random>
 
 namespace nfd{
 namespace fw{
@@ -17,10 +18,9 @@ const time::milliseconds VNDN::RETX_SUPPRESSION_INITIAL(10);
 const time::milliseconds VNDN::RETX_SUPPRESSION_MAX(250);
 
 VNDN::VNDN(Forwarder &forwarder, const Name &name)
-	: Strategy(forwarder), ProcessNackTraits(this),
+	: Strategy(forwarder), 
 	  m_retxSuppression(RETX_SUPPRESSION_INITIAL, RetxSuppressionExponential::DEFAULT_MULTIPLIER,
 						RETX_SUPPRESSION_MAX),
-	  m_forwarder(forwarder),
 	  m_nodes(ns3::NodeContainer::GetGlobal()), m_Rth(500)
 {
 	ParsedInstanceName parsed = parseInstanceName(name);
@@ -60,7 +60,7 @@ void VNDN::afterReceiveInterest(const FaceEndpoint &ingress, const Interest &int
 	auto egress = FaceEndpoint(it->getFace(), 0);
 	// 如果是Consumer端或Producer端，则直接转发给应用层，无需等待
 	if (ingress.face.getId() == 256+m_nodes.GetN() || egress.face.getId() == 256+m_nodes.GetN()) {
-		NFD_LOG_INFO("do send " << interest << " from=" << ingress << " to=" << egress);
+		NFD_LOG_INFO("do Send Interest " << interest << " from=" << ingress << " to=" << egress);
 		this->sendInterest(pitEntry, egress, interest);
 	}
 	else {
@@ -100,7 +100,7 @@ void VNDN::doSend(const shared_ptr<pit::Entry> &pitEntry,
 				  const FaceEndpoint &egress, const FaceEndpoint &ingress,
 				  const Interest &interest)
 {
-	NFD_LOG_INFO("do send" << interest << " from=" << ingress << " to=" << egress);
+	NFD_LOG_INFO("do Send Interest" << interest << " from=" << ingress << " to=" << egress);
 	this->sendInterest(pitEntry, egress, interest);
 	auto it = findEntry(interest.getName(), interest.getNonce());
 	this->deleteEntry(it);
@@ -109,7 +109,6 @@ void VNDN::doSend(const shared_ptr<pit::Entry> &pitEntry,
 void VNDN::afterReceiveData(const shared_ptr<pit::Entry> &pitEntry,
 							const FaceEndpoint &ingress, const Data &data)
 {
-	NFD_LOG_DEBUG("afterReceiveData Interest=" << pitEntry->getInterest().getName()<<" Nonce="<<pitEntry->getInterest().getNonce()<< " in=" << ingress);
 	Interest interest = pitEntry->getInterest();
 	// auto it = findEntry(interest.getName(), interest.getNonce());
 	// if (it != m_waitTable.end()) {
@@ -118,8 +117,26 @@ void VNDN::afterReceiveData(const shared_ptr<pit::Entry> &pitEntry,
 	// }
 	const auto& inface =  (pitEntry->getInRecords().begin()->getFace());
     auto egress = FaceEndpoint(inface,0);
+    NFD_LOG_DEBUG("do Send Data="<<data.getName()<<", from="<<ingress<<", to="<<egress);
 	this->sendData(pitEntry,data,egress);
-	// this->sendDataToAll(pitEntry, ingress, data);
+}
+
+void
+VNDN::cancelSend(Interest interest, ns3::EventId eventId) {
+	ns3::Simulator::Cancel(eventId);
+	NS_LOG_DEBUG("Cancel Forwarding Interest: "<<interest);
+}
+
+double
+VNDN::caculateDeferTime(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> receiveNode) {
+	ns3::Ptr<ns3::MobilityModel> mobility1 = sendNode->GetObject<ns3::MobilityModel>();
+	ns3::Ptr<ns3::MobilityModel> mobility2 = receiveNode->GetObject<ns3::MobilityModel>();
+	double distance =  mobility2->GetDistanceFrom(mobility1);
+	std::random_device rd;
+    std::mt19937 gen(rd());
+    double T_random = std::uniform_real_distribution<double>(0, 0.1) (gen);
+	double defer_time = 1/(distance+0.0001) * (1+T_random);
+	return defer_time;
 }
 
 std::vector<VNDN::m_tableEntry>::iterator
@@ -145,21 +162,6 @@ VNDN::deleteEntry(std::vector<VNDN::m_tableEntry>::iterator it)
 		NFD_LOG_DEBUG("Delete WaitTable Entry: ("<< it->interestName <<", "<< it->nonce<<", " << it->deferTime.GetSeconds()<<", " << it->eventId.GetUid()<<")");
 		m_waitTable.erase(it);
 	}
-}
-
-double
-VNDN::caculateDeferTime(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> receiveNode) {
-	ns3::Ptr<ns3::MobilityModel> mobility1 = sendNode->GetObject<ns3::MobilityModel>();
-	ns3::Ptr<ns3::MobilityModel> mobility2 = receiveNode->GetObject<ns3::MobilityModel>();
-	double distance =  mobility2->GetDistanceFrom(mobility1);
-	double defer_time = 1/(distance+0.0001);
-	return defer_time;
-}
-
-void
-VNDN::cancelSend(Interest interest, ns3::EventId eventId) {
-	ns3::Simulator::Cancel(eventId);
-	NS_LOG_DEBUG("Cancel Forwarding Interest: "<<interest);
 }
 
 } // namespace fw

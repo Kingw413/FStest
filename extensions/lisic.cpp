@@ -57,7 +57,7 @@ void LISIC::afterReceiveInterest(const FaceEndpoint &ingress, const Interest &in
 	auto egress = FaceEndpoint(it->getFace(), 0);
 	// 如果是Consumer端或Producer端，则直接转发给应用层，无需等待
 	if (ingress.face.getId() == 256+m_nodes.GetN() || egress.face.getId() == 256+m_nodes.GetN()) {
-		NFD_LOG_INFO("do send " << interest << " from=" << ingress << " to=" << egress);
+		NFD_LOG_INFO("do Send Interest" << interest << " from=" << ingress << " to=" << egress);
 		this->sendInterest(pitEntry, egress, interest);
 	}
 	else {
@@ -97,7 +97,7 @@ void LISIC::doSend(const shared_ptr<pit::Entry> &pitEntry,
 				  const FaceEndpoint &egress, const FaceEndpoint &ingress,
 				  const Interest &interest)
 {
-	NFD_LOG_INFO("do send" << interest << " from=" << ingress << " to=" << egress);
+	NFD_LOG_INFO("do Send Interest " << interest << " from=" << ingress << " to=" << egress);
 	this->sendInterest(pitEntry, egress, interest);
 	auto it = findEntry(interest.getName(), interest.getNonce());
 	this->deleteEntry(it);
@@ -106,7 +106,6 @@ void LISIC::doSend(const shared_ptr<pit::Entry> &pitEntry,
 void LISIC::afterReceiveData(const shared_ptr<pit::Entry> &pitEntry,
 							const FaceEndpoint &ingress, const Data &data)
 {
-	NFD_LOG_DEBUG("afterReceiveData Interest=" << pitEntry->getInterest().getName()<<" Nonce="<<pitEntry->getInterest().getNonce()<< " in=" << ingress);
 	Interest interest = pitEntry->getInterest();
 	// auto it = findEntry(interest.getName(), interest.getNonce());
 	// if (it != m_waitTable.end()) {
@@ -117,6 +116,7 @@ void LISIC::afterReceiveData(const shared_ptr<pit::Entry> &pitEntry,
     auto egress = FaceEndpoint(inface,0);
 	this->sendData(pitEntry,data,egress);
 	// this->sendDataToAll(pitEntry, ingress, data);
+    NFD_LOG_DEBUG("do Send Data="<<data.getName()<<", from="<<ingress<<", to="<<egress);
 }
 
 std::vector<LISIC::m_tableEntry>::iterator
@@ -173,8 +173,6 @@ LISIC::cancelSend(Interest interest, ns3::EventId eventId) {
 	ns3::Simulator::Cancel(eventId);
 	NS_LOG_DEBUG("Cancel Forwarding Interest: "<<interest);
 }
-
-
 
 } // namespace fw
 } // namespace nfd

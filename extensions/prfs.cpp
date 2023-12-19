@@ -107,11 +107,12 @@ void
 PRFS::afterReceiveData(const shared_ptr<pit::Entry> &pitEntry,
 							const FaceEndpoint &ingress, const Data &data)
 {
-	NFD_LOG_DEBUG("afterReceiveData Interest=" << pitEntry->getInterest().getName()<<" Nonce="<<pitEntry->getInterest().getNonce()<< " in=" << ingress);
+	// NFD_LOG_DEBUG("afterReceiveData Interest=" << pitEntry->getInterest().getName()<<" Nonce="<<pitEntry->getInterest().getNonce()<< " in=" << ingress);
 	Interest interest = pitEntry->getInterest();
 	const auto& inface =  (pitEntry->getInRecords().begin()->getFace());
     auto egress = FaceEndpoint(inface,0);
 	this->sendData(pitEntry,data,egress);
+    NFD_LOG_DEBUG("do Send Data="<<data.getName()<<", from="<<ingress<<", to="<<egress);
 }
 
 void

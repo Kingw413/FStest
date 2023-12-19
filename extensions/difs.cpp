@@ -57,7 +57,7 @@ void DIFS::afterReceiveInterest(const FaceEndpoint &ingress, const Interest &int
 
 	// 如果是Consumer端或Producer端，则直接转发给应用层，无需等待
 	if (ingress.face.getId() == 256+m_nodes.GetN() || egress.face.getId() == 256+m_nodes.GetN()) {
-		NFD_LOG_INFO("do send " << interest << " from=" << ingress << " to=" << egress);
+		NFD_LOG_INFO("do Send Interest" << interest << " from=" << ingress << " to=" << egress);
 		this->sendInterest(pitEntry, egress, interest);
         return;
 	}
@@ -79,7 +79,7 @@ void DIFS::afterReceiveInterest(const FaceEndpoint &ingress, const Interest &int
     DecisionEntry optimalDecision = this->getOptimalDecision(decisionList, idealSolution, negIdealSolution);
 
     if (optimalDecision.node->GetId() == receiveNode->GetId()) {
-        NFD_LOG_INFO("do send " << interest << " from=" << ingress << " to=" << egress);
+        NFD_LOG_INFO("do Send Interest" << interest << " from=" << ingress << " to=" << egress);
         this->sendInterest(pitEntry, egress, interest);
     }
 }
@@ -88,11 +88,11 @@ void
 DIFS::afterReceiveData(const shared_ptr<pit::Entry> &pitEntry,
 							const FaceEndpoint &ingress, const Data &data)
 {
-	NFD_LOG_DEBUG("afterReceiveData Interest=" << pitEntry->getInterest().getName()<<" Nonce="<<pitEntry->getInterest().getNonce()<< " in=" << ingress);
 	Interest interest = pitEntry->getInterest();
 	const auto& inface =  (pitEntry->getInRecords().begin()->getFace());
     auto egress = FaceEndpoint(inface,0);
 	this->sendData(pitEntry,data,egress);
+    NFD_LOG_DEBUG("do Send Data="<<data.getName()<<", from="<<ingress<<", to="<<egress);
 }
 
 double

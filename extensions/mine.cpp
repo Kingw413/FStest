@@ -180,10 +180,12 @@ void
 MINE::afterContentStoreHit(const shared_ptr<pit::Entry>& pitEntry,
                                const FaceEndpoint& ingress, const Data& data)
 {
-  NFD_LOG_DEBUG("afterContentStoreHit pitEntry=" << pitEntry->getName()
-                << " in=" << ingress << " data=" << data.getName());
+//   NFD_LOG_DEBUG("afterContentStoreHit pitEntry=" << pitEntry->getName()
+//                 << " in=" << ingress << " data=" << data.getName());
 
   this->sendData(pitEntry, data, ingress);
+NFD_LOG_DEBUG("do Send Data="<<data.getName()<<", from="<<ingress);
+
 }
 
 void
@@ -191,14 +193,14 @@ MINE::afterReceiveData(const shared_ptr<pit::Entry>& pitEntry,
                            const FaceEndpoint& ingress, const Data& data)
 {
   	this->beforeSatisfyInterest(pitEntry, ingress, data);
-    NFD_LOG_DEBUG("do Receive Data pitEntry=" << pitEntry->getName()
-                << " in=" << ingress << " data=" << data.getName());
+    // NFD_LOG_DEBUG("afterReceiveData pitEntry=" << pitEntry->getName()
+    //             << " in=" << ingress << " data=" << data.getName());
 	this->sendDataToAll(pitEntry, ingress, data);
+    NFD_LOG_DEBUG("do Send Data="<<data.getName()<<", from="<<ingress);
 }
 
 void
 MINE::contentDiscovery(ns3::Ptr<ns3::Node> localNode, const FaceEndpoint& ingress, const fib::NextHopList& nexthops, const Interest& interest, const shared_ptr<pit::Entry> &pitEntry) {
-    // ns3::Ptr<ns3::Node> localNode =getNode(*this);
         if (ingress.face.getId()==256+m_nodes.GetN()) {
         // 使用NonDiscoveryTag标识是否是用于Content Discovery的Interest包
         interest.setTag(make_shared<lp::NonDiscoveryTag>(lp::EmptyValue{}));
