@@ -11,3 +11,4 @@ build/
 *.tcl
 .vscode/
 ./mobility-traces
+./results

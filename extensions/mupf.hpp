@@ -111,6 +111,7 @@ private:
     bool m_isContentDiscovery = false;
 	std::vector<MUPF::weightTableEntry> m_WT;
 	std::vector<MUPF::neighborTableEntry> m_NT;
+    std::unordered_map<ns3::Ptr<ns3::Node>,  std::set<ns3::Ptr<ns3::Node>>> m_path;
 
 	PUBLIC_WITH_TESTS_ELSE_PRIVATE : static const time::milliseconds RETX_SUPPRESSION_INITIAL;
 	static const time::milliseconds RETX_SUPPRESSION_MAX;

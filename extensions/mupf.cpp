@@ -34,7 +34,6 @@ const time::milliseconds MUPF::RETX_SUPPRESSION_MAX(250);
 MUPF::MUPF(Forwarder& forwarder, const Name& name)
     : Strategy(forwarder),
       ProcessNackTraits(this),
-    //   m_Rth(100.0),
       m_nodes(ns3::NodeContainer::GetGlobal()),
       m_retxSuppression(RETX_SUPPRESSION_INITIAL,
                         RetxSuppressionExponential::DEFAULT_MULTIPLIER,
@@ -71,7 +70,7 @@ void MUPF::afterReceiveInterest(const FaceEndpoint& ingress,
      *因为创建无线face时在FIB中添加了“/”的路由，因此匹配到“/”等价于FIB中无匹配项
     */
     if ( it.getFace().getId() != 256+m_nodes.GetN() && prefix == "/") {
-        NFD_LOG_DEBUG("There is no entry in FIB, do Content Discovery!");
+        NFD_LOG_DEBUG("Interest="<<interest << " from=" << ingress<<" no match in FIB, do Content Discovery!");
         contentDiscovery(ingress, interest, pitEntry);
         return;
     }
@@ -157,12 +156,17 @@ MUPF::contentDiscovery(const FaceEndpoint& ingress, const Interest& interest, co
         if ( ingress.face.getId() == nexthop.getFace().getId() ||  !isInRegion(localNode, othNode) ) { continue; }
         auto egress = FaceEndpoint(nexthop.getFace(), 0);
         this->sendInterest(pitEntry, egress, interest);
-        NFD_LOG_DEBUG("do Send Interest="<<interest << " from=" << ingress << "to=" << egress);
+        // NFD_LOG_DEBUG("do Send Interest="<<interest << " from=" << ingress << "to=" << egress);
     }
 }
 
 void
 MUPF::unicastPathBuilding(const ndn::Name prefix, ns3::Ptr<ns3::Node> srcNode, ns3::Ptr<ns3::Node> providerNode) {
+    // 巨坑！保存路径，以防止路径环路
+    if (m_path.empty()) {
+        m_path.emplace(providerNode, std::set<ns3::Ptr<ns3::Node>>{srcNode});
+    }
+    
     // 循环执行直到Producer在当前relay的范围内
     while ( !isInRegion(srcNode, providerNode) ) {
         std::vector<MUPF::weightTableEntry> weightTable;
@@ -175,13 +179,22 @@ MUPF::unicastPathBuilding(const ndn::Name prefix, ns3::Ptr<ns3::Node> srcNode, n
             weightTableEntry entry = {node, dis, dir, den, score};
             weightTable.push_back(entry);
         }
+        if (weightTable.size()==0) {
+            NFD_LOG_DEBUG("There is no Path!");
+            return;
+        }
         ns3::Ptr<ns3::Node> selectNode = std::max_element(weightTable.begin(), weightTable.end(), [](const auto& a, const auto& b) { return a.Score<b.Score;})->node;
-        ns3::Ptr<ns3::ndn::L3Protocol> ndn = selectNode->GetObject<ns3::ndn::L3Protocol>();
+        ns3::Ptr<ns3::ndn::L3Protocol> ndn = srcNode->GetObject<ns3::ndn::L3Protocol>();
         uint32_t faceId = (selectNode->GetId()+256) + (selectNode->GetId() < srcNode->GetId());
         shared_ptr<Face> face = ndn->getFaceById(faceId);
         ns3::ndn::FibHelper::AddRoute(srcNode, prefix, face, 1);
-        NFD_LOG_DEBUG("Add Route: Node="<<srcNode->GetId()<<"Prefix="<<prefix<<"Face="<<faceId);
+        NFD_LOG_DEBUG("Add Route: Node="<<srcNode->GetId()<<", Prefix="<<prefix<<", Face="<<faceId);
         srcNode = selectNode;
+
+        // 巨坑！保存路径，以防止路径环路
+        auto pair = m_path.find(providerNode);
+        auto it = pair->second.insert(selectNode);
+        NS_ASSERT(it.second);
     }
     ns3::Ptr<ns3::ndn::L3Protocol> ndn = srcNode->GetObject<ns3::ndn::L3Protocol>();
     uint32_t faceId = (providerNode->GetId()+256) + (providerNode->GetId() < srcNode->GetId());
@@ -220,7 +233,11 @@ MUPF::isIntermediateNode(ns3::Ptr<ns3::Node> node, ns3::Ptr<ns3::Node> srcNode, 
     double R2 = 1.5*d_sd - Rth;
     double d_sj = ns3::CalculateDistance(srcNode->GetObject<ns3::MobilityModel>()->GetPosition(), node->GetObject<ns3::MobilityModel>()->GetPosition());
     double d_jd = ns3::CalculateDistance(desNode->GetObject<ns3::MobilityModel>()->GetPosition(), node->GetObject<ns3::MobilityModel>()->GetPosition());
-    if (d_sj <= Rth && d_jd <= R2) {
+    
+    // 巨坑！新增补丁：保存路径，以防止路径环路
+    auto path = m_path.find(desNode);
+    auto it = std::find(path->second.begin(), path->second.end(), node);
+      if ( it==path->second.end() && d_sj <= Rth && d_jd <= R2) {
         return true;
     }
     return false;
