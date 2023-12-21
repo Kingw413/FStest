@@ -10,5 +10,5 @@ build/
 *.pcap
 *.tcl
 .vscode/
-./mobility-traces
-./results
+mobility-traces/
+results/
