@@ -1,44 +1,52 @@
-import numpy as np
-from itertools import zip_longest
-import sys
+import os
+import pandas as pd
 
-def calMetric(logfile, delayfile, rate, time, num): 
-    fip=fdp=delay=hir=isr = 0
-    producer_num = 0
-    for file in logfile:
-        logs = open(file, 'r').readlines()
-        fip_num, fdp_num = 0,0
-        for line in logs:
-            if ( ("ndn-cxx.nfd" not in line) or ("localhost") in line):
-                continue
-            value = line.split( )
-            if ( ("do Send Interest" in line) or ("do Content Discovery" in line)):
-                fip_num += 1
-            if ("afterReceiveData" in line or "afterContentStoreHit" in line):
-                fdp_num += 1
-            if ("ndn.Producer" in line and "responding with Data" in line):
-                producer_num += 1
-        fip = round(fip_num/num, 4) 
-        fdp = round(fdp_num/num, 4)
-    for file in delayfile:
-        delay0_list= []
-        results = open(file, 'r').readlines()[1:]
-        for line in results:
-            value = line.split("\t")
-            if ( value[4] == "FullDelay"):
-                delay0_list.append(float(value[5]))
-        if (len(results) == 0 ):
-            mean_delay0, mean_delay1, mean_hop0, mean_hop1 = 0,0,0,0
-        else:
-            mean_delay0 = sum(delay0_list) / len(delay0_list)
-        delay = round((mean_delay0), 6) 
-        isr = round(len(results)/2/rate/time,5) 
-        hir = round( (len(delay0_list)-producer_num)/(len(delay0_list)+0.001), 4) 
-    return [fip, fdp, delay, isr, hir]
+# 设置结果文件夹路径
+num_folder = 'results/1.1_highway_changeSpeed/n100'
+speed_folder = 'results/1.2_highway_changeNum/v90'
+var_folder = 'results/1.3_highway_changeSpeedVar/n100'
+rate_folder = 'results/1.4_highway_changeRate'
+num_indicators = [n for n in range(20,201,20)]
+speed_indicators = [v for v in range(60,121,10)]
+var_indicators = [var for var in range(10,61,10)]
+rate_indicators = [rate for rate in range(1,11,1)]
+results_folder = [num_folder, speed_folder, var_folder,rate_folder]
+indicators = [num_indicators, speed_indicators, var_indicators, rate_indicators]
+index_label = ['Node Number', 'Speed', 'Var', 'Rate']
 
-def writeMetricToFile(filename, metric):
-    results_file = ['fip.txt', 'fdp.txt', 'delay.txt' , 'isr.txt', 'hir.txt']
-    for i in range(len(metric)):
-        file = '/home/whd/ndnSIM2.8/wireless-macspec/results/' + results_file[i]
-        with open(file, 'a') as f:
-            f.write(str(metric[i])+'\t')
+for i in range(4):
+    # 创建一个空的DataFrame来存储所有实验数据
+    all_data = pd.DataFrame()
+
+    # 遍历每个子文件夹
+    for subdir in os.listdir(results_folder[i]):
+        subdir_path = os.path.join(results_folder[i], subdir)
+
+        # 确保是文件夹而非文件
+        if os.path.isdir(subdir_path):
+            # 创建一个空的DataFrame来存储当前场景下的所有运行数据
+            scene_data = pd.DataFrame()
+
+            # 遍历当前子文件夹中的每个csv文件
+            for file_name in os.listdir(subdir_path):
+                if file_name.endswith('.csv'):
+                    file_path = os.path.join(subdir_path, file_name)
+
+                    # 读取CSV文件
+                    csv_data = pd.read_csv(file_path, index_col=0)
+                    # 将每次运行的数据添加到scene_data
+                    scene_data = pd.concat([scene_data, csv_data])
+
+            # 计算当前场景下每个指标下每个方法的平均值
+            method_means = scene_data.groupby(level=0).mean()
+            
+            # 将当前场景的平均值添加到all_data
+            all_data = pd.concat([all_data, method_means])
+
+    # 将结果写入csv文件
+    all_data.to_csv('average_results.csv')
+    final_results = all_data.groupby(level=0)
+    for indicator, indicator_data in final_results:
+        fine_name = results_folder[i] +'/average_'+ indicator + '.csv'
+        indicator_data.index = indicators[i]
+        indicator_data.to_csv(fine_name, index_label=index_label[i])
