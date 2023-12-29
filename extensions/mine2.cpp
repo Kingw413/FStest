@@ -16,6 +16,7 @@
 #include <ndn-cxx/lp/prefix-announcement-header.hpp>
 #include <ndn-cxx/lp/tags.hpp>
 #include <chrono>
+#include "ns3/ndnSIM/NFD/daemon/table/fib-entry.hpp"
 
 namespace nfd {
 namespace fw {
@@ -29,6 +30,7 @@ const double MINE2::Phi(0.33);
 const double MINE2::Omega(0.33); 
 const double MINE2::Alpha(0.5); 
 const double MINE2::Beta(0.5); 
+const double MINE2::LETMAX(50);
 
 const time::milliseconds MINE2::RETX_SUPPRESSION_INITIAL(10);
 const time::milliseconds MINE2::RETX_SUPPRESSION_MAX(250);
@@ -61,12 +63,11 @@ const Name& MINE2::getStrategyName() {
 void MINE2::afterReceiveInterest(const FaceEndpoint& ingress,
                                const Interest& interest,
                                const shared_ptr<pit::Entry>& pitEntry)
-{
+{   
     const fib::Entry& fibEntry = this->lookupFib(*pitEntry);
     const Name prefix = fibEntry.getPrefix();
     const fib::NextHopList& nexthops = fibEntry.getNextHops();
     ns3::Ptr<ns3::Node> localNode = getNode(*this);
-
     //因为创建无线face时在FIB中添加了“/”的路由，因此匹配到“/”等价于FIB中无匹配项
     if (prefix == "/") {
         NFD_LOG_DEBUG("Interest="<<interest << " from=" << ingress<<" no match in FIB, do Content Discovery!");
@@ -76,13 +77,14 @@ void MINE2::afterReceiveInterest(const FaceEndpoint& ingress,
     // 更新FIB
     for (const auto& providerNode : m_CPT) {
         // NFD_LOG_DEBUG("update CPT P="<<providerNode->GetId());
-        this->updateFIB(prefix, localNode, providerNode, nexthops);
+        this->updateFIB(prefix, localNode, providerNode, nexthops, fibEntry);
     }
-    const fib::Entry& newfibEntry = this->lookupFib(*pitEntry);
-    NFD_LOG_DEBUG("Prefix="<<newfibEntry.getPrefix());
-    const fib::NextHopList& newnexthops = newfibEntry.getNextHops();
-
-    auto it = this->selectFIB(localNode, interest, newnexthops, fibEntry);
+    //此处有一个小bug，updateFIB中的AddRoute操作需要时间，因此此时读取的fibEntry并非更新后的，更新后的FIB表项下一次才会起作用
+    auto it = this->selectFIB(localNode, interest, ingress, nexthops, fibEntry);
+    if (it==nullptr) {
+        NFD_LOG_DEBUG("No Next Hop!");
+        return;
+    }
 	auto egress = FaceEndpoint(*it, 0);
     NFD_LOG_DEBUG("do Send Interest="<<interest << " from=" << ingress << "to=" << egress);
 	this->sendInterest(pitEntry, egress, interest);
@@ -97,10 +99,18 @@ void MINE2::afterReceiveInterest(const FaceEndpoint& ingress,
 }
 
 void
+MINE2::afterReceiveLoopedInterest(const FaceEndpoint& ingress, const Interest& interest,
+                                     pit::Entry& pitEntry)
+{
+//   NFD_LOG_DEBUG("afterReceiveLoopedInterest pitEntry=" << pitEntry.getName()
+//                 << " in=" << ingress);
+}
+
+void
 MINE2::afterContentStoreHit(const shared_ptr<pit::Entry>& pitEntry,
                                const FaceEndpoint& ingress, const Data& data) {
-    this->sendData(pitEntry, data, ingress);
     NFD_LOG_DEBUG("do Send Data="<<data.getName()<<", from="<<ingress);
+    this->sendData(pitEntry, data, ingress);
 }
 
 void
@@ -129,7 +139,7 @@ MINE2::beforeSatisfyInterest(const shared_ptr<pit::Entry>& pitEntry,
     NamespaceInfo *namespaceInfo = m_measurements.getNamespaceInfo(pitEntry->getName());
     if (namespaceInfo == nullptr)
     {
-        NFD_LOG_DEBUG(pitEntry->getName() << " data from=" << ingress << " no-measurements");
+        // NFD_LOG_DEBUG(pitEntry->getName() << " data from=" << ingress << " no-measurements");
         return;
     }
 
@@ -137,22 +147,21 @@ MINE2::beforeSatisfyInterest(const shared_ptr<pit::Entry>& pitEntry,
     FaceInfo *faceInfo = namespaceInfo->getFaceInfo(ingress.face.getId());
     if (faceInfo == nullptr)
     {
-        NFD_LOG_DEBUG(pitEntry->getName() << " data from=" << ingress << " no-face-info");
+        // NFD_LOG_DEBUG(pitEntry->getName() << " data from=" << ingress << " no-face-info");
         return;
     }
 
     auto outRecord = pitEntry->getOutRecord(ingress.face);
     if (outRecord == pitEntry->out_end())
     {
-        NFD_LOG_DEBUG(pitEntry->getName() << " data from=" << ingress << " no-out-record");
+        // NFD_LOG_DEBUG(pitEntry->getName() << " data from=" << ingress << " no-out-record");
     }
     else
     {
         faceInfo->recordRtt(time::steady_clock::now() - outRecord->getLastRenewed());
         ++faceInfo->m_counters.nSatisfiedInterests;
-        // NFD_LOG_DEBUG("nSatisfiedInterests="<<faceInfo->m_counters.nSatisfiedInterests);
-        NFD_LOG_DEBUG(pitEntry->getName() << " data from=" << ingress
-                                          << " rtt=" << faceInfo->getLastRtt() << " srtt=" << faceInfo->getSrtt()<<" isr="<<faceInfo->getLastISR()<<" sisr="<<faceInfo->getSmoothedISR());
+        // NFD_LOG_DEBUG(pitEntry->getName() << " data from=" << ingress
+        //                                   << " rtt=" << faceInfo->getLastRtt() << " srtt=" << faceInfo->getSrtt()<<" isr="<<faceInfo->getLastISR()<<" sisr="<<faceInfo->getSmoothedISR());
     }
 
     namespaceInfo->extendFaceInfoLifetime(*faceInfo, ingress.face.getId());
@@ -165,7 +174,7 @@ MINE2::afterReceiveDiscoveryData(const shared_ptr<pit::Entry>& pitEntry,
     // this->setExpiryTimer(pitEntry, 5000_ms);
 
     ns3::Ptr<ns3::Node> localNode = getNode(*this);
-NFD_LOG_DEBUG("afterReceive Discovery Data="<<data.getName()<<", from="<<ingress.face.getId());
+    
     // 当Interest到达Producer后，将Provider ID添加到Data包的`CongestionMarkTag`中。
     if (ingress.face.getId() == 256 + m_nodes.GetN())
     {
@@ -179,13 +188,13 @@ NFD_LOG_DEBUG("afterReceive Discovery Data="<<data.getName()<<", from="<<ingress
     shared_ptr<Face> face = ndn->getFaceById(ingress.face.getId());
     ndn::Name prefix = pitEntry->getName().getPrefix(1);
     ns3::ndn::FibHelper::AddRoute(localNode, prefix, face, 1e6);
-    NFD_LOG_DEBUG("Add Route: Node="<<localNode->GetId()<<", Prefix="<<prefix<<", Face="<<ingress.face.getId()<<", Score="<<1e6);
+    // NFD_LOG_DEBUG("Add Route: Node="<<localNode->GetId()<<", Prefix="<<prefix<<", Face="<<ingress.face.getId()<<", Score="<<1e6);
 
     // 当Data返回到请求的Consumer端时，结束泛洪检索，并触发路径建立过程。
     uint64_t requesterId = pitEntry->getInterest().getTag<lp::CongestionMarkTag>()->get();
     if (requesterId == localNode->GetId())
     {
-        NFD_LOG_DEBUG("Content Discovery Finished!"<<" data="<<data.getName()<< " In="<<ingress);
+        // NFD_LOG_DEBUG("Content Discovery Finished!"<<" data="<<data.getName()<< " In="<<ingress);
         uint64_t providerNodeId = data.getTag<lp::CongestionMarkTag>()->get();
         ns3::Ptr<ns3::Node> providerNode = m_nodes[providerNodeId];
 
@@ -199,7 +208,7 @@ NFD_LOG_DEBUG("afterReceive Discovery Data="<<data.getName()<<", from="<<ingress
 
 void
 MINE2::contentDiscovery(ns3::Ptr<ns3::Node> localNode, const FaceEndpoint& ingress, const fib::NextHopList& nexthops, const Interest& interest, const shared_ptr<pit::Entry> &pitEntry) {
-        if (ingress.face.getId()==256+m_nodes.GetN()) {
+    if (ingress.face.getId()==256+m_nodes.GetN()) {
         // 使用NonDiscoveryTag标识是否是用于Content Discovery的Interest包
         interest.setTag(make_shared<lp::NonDiscoveryTag>(lp::EmptyValue{}));
         // 使用Interest包的CongestionMarkTag标识Requseter ID
@@ -208,7 +217,7 @@ MINE2::contentDiscovery(ns3::Ptr<ns3::Node> localNode, const FaceEndpoint& ingre
     }
 
     for (const auto& nexthop : nexthops) {
-        if (!isNextHopEligible(ingress.face, nexthop, localNode))
+        if (!isNextHopEligible(ingress, nexthop, localNode))
             continue;
         auto egress = FaceEndpoint(nexthop.getFace(), 0);
         this->sendInterest(pitEntry, egress, interest);
@@ -258,7 +267,7 @@ MINE2::unicastPathBuilding(const ndn::Name prefix, ns3::Ptr<ns3::Node> srcNode, 
         uint32_t faceId = (selectNode->GetId()+256) + (selectNode->GetId() < srcNode->GetId());
         shared_ptr<Face> face = ndn->getFaceById(faceId);
         ns3::ndn::FibHelper::AddRoute(srcNode, prefix, face, score*1e6);
-        NFD_LOG_DEBUG("Add Route: Node="<<srcNode->GetId()<<", Prefix="<<prefix<<", Face="<<faceId<<", Score="<<score);
+        // NFD_LOG_DEBUG("Add Route: Node="<<srcNode->GetId()<<", Prefix="<<prefix<<", Face="<<faceId<<", Score="<<score);
         srcNode = selectNode;
         // 添加路径
         auto pair = m_path.find(providerNode);
@@ -269,11 +278,12 @@ MINE2::unicastPathBuilding(const ndn::Name prefix, ns3::Ptr<ns3::Node> srcNode, 
     uint32_t faceId = (providerNode->GetId()+256) + (providerNode->GetId() < srcNode->GetId());
     shared_ptr<Face> face = ndn->getFaceById(faceId);
     ns3::ndn::FibHelper::AddRoute(srcNode, prefix, face, 1e6);
-    NFD_LOG_DEBUG("Add Route: Node="<<srcNode->GetId()<<", Prefix="<<prefix<<", Face="<<faceId<<", Score="<<1.0);
+    // NFD_LOG_DEBUG("Add Route: Node="<<srcNode->GetId()<<", Prefix="<<prefix<<", Face="<<faceId<<", Score="<<1.0);
 }
 
 void
-MINE2::updateFIB(const ndn::Name prefix, ns3::Ptr<ns3::Node> srcNode, ns3::Ptr<ns3::Node> providerNode, const fib::NextHopList& nexthops) {
+MINE2::updateFIB(const ndn::Name prefix, ns3::Ptr<ns3::Node> srcNode, ns3::Ptr<ns3::Node> providerNode,  const fib::NextHopList& nexthops, const fib::Entry& fibEntry) {
+    NFD_LOG_DEBUG("updateFIB");
     if (nexthops.begin()->getFace().getId() == 256+m_nodes.GetN()) {return;}
     double min_score = std::min_element(nexthops.begin(), nexthops.end(), [](const auto& a, const auto& b) {return a.getCost() < b.getCost();})->getCost() / 1e6;
     for (const auto& oth_node : m_nodes) {
@@ -287,42 +297,46 @@ MINE2::updateFIB(const ndn::Name prefix, ns3::Ptr<ns3::Node> srcNode, ns3::Ptr<n
             uint32_t faceId = (oth_node->GetId()+256) + (oth_node->GetId() < srcNode->GetId());
             shared_ptr<Face> face = ndn->getFaceById(faceId);
             ns3::ndn::FibHelper::AddRoute(srcNode, prefix, face, score*1e6);
-            NFD_LOG_DEBUG("updateFIB: Node="<<srcNode->GetId()<<", Prefix="<<prefix<<", Face="<<faceId<<", New_Score="<<score<<", Min_Score="<<min_score);
+            // NFD_LOG_DEBUG("updateFIB: Node="<<srcNode->GetId()<<", Prefix="<<prefix<<", Face="<<faceId<<", New_Score="<<score<<", Min_Score="<<min_score);
         }
     }
-    // fib::NextHopList newnexthoplist;
-    // nfd::fib::NextHop newnexthop = ;
-
 }
 
 Face*
-MINE2::selectFIB(ns3::Ptr<ns3::Node> localNode, const Interest& interest, const fib::NextHopList& nexthops, const fib::Entry& fibEntry) {
+MINE2::selectFIB(ns3::Ptr<ns3::Node> localNode, const Interest& interest, const FaceEndpoint& ingress, const fib::NextHopList& nexthops, const fib::Entry& fibEntry) {
     auto selectedHop = *nexthops.begin();
     if (selectedHop.getFace().getId() == 256+m_nodes.GetN()) {return &selectedHop.getFace();}
-    
     std::vector<FaceStats> faceList;
     for(const auto& nexthop : nexthops) {
+        if (ingress.face.getId()==nexthop.getFace().getId() ) {continue;};
         uint32_t faceId = nexthop.getFace().getId();
         uint32_t othNodeId = (faceId - 257) + (localNode->GetId() + 257 <= faceId);
         ns3::Ptr<ns3::Node>othNode = m_nodes[othNodeId];
         double let = this->calculateLET(localNode, othNode);
         double link_prob = this->calculateLAP(let, 2.0);
-
+        if (let==0) {continue;} //补丁操作，防止选择LET=0的链路
+        // bool isinregion = this->isInRegion(localNode, othNode);
+        // if(isinregion) { NFD_LOG_DEBUG("TEST2");
+        // if(!isinregion) {continue;}
         FaceInfo* info = m_measurements.getFaceInfo(fibEntry, interest, nexthop.getFace().getId());
         if (info == nullptr) {
-            faceList.push_back({&nexthop.getFace(),let, link_prob, -1, -1});
-            NFD_LOG_DEBUG("Face="<<nexthop.getFace().getId()<<", LET="<<let<<", LAP="<<link_prob<<", SRTT="<<-1<<", ISR="<<-1);
+            faceList.push_back({&nexthop.getFace(),let, link_prob, 0, 0});
+            // NFD_LOG_DEBUG("Face="<<nexthop.getFace().getId()<<", LET="<<let<<", LAP="<<link_prob<<", SRTT="<<-1<<", ISR="<<-1);
         }
         else {
             double srtt = 10 - boost::chrono::duration_cast<boost::chrono::duration<double>>(info->getSrtt()).count(); // 正向化处理SRTT指标
             double isr = info->getSmoothedISR();
             faceList.push_back({&nexthop.getFace(),let, link_prob, srtt, isr});
-            NFD_LOG_DEBUG("Face="<<nexthop.getFace().getId()<<", LET="<<let<<", LAP="<<link_prob<<", SRTT="<<srtt<<", ISR="<<isr);
-        }
+            // NFD_LOG_DEBUG("Face="<<nexthop.getFace().getId()<<", LET="<<let<<", LAP="<<link_prob<<", SRTT="<<srtt<<", ISR="<<isr);
+        } 
     }
+    if(faceList.empty()) {return nullptr;}
     std::vector<FaceStats> normalizedFaceList  = customNormalize(faceList);
+    // for (const auto& it: normalizedFaceList) {
+    //         NFD_LOG_DEBUG("Selected Next Hop="<<it.face->getId()<<", LET="<<it.let<<", LAP="<<it.lap<<", SRTT="<<it.srtt<<", ISR="<<it.sisr);
+    // }
     auto it = std::max_element(normalizedFaceList.begin(), normalizedFaceList.end(), [](const auto& a, const auto& b) { return a.let+a.lap+a.srtt+a.sisr < b.let+b.lap+b.srtt+b.sisr; });
-    NFD_LOG_DEBUG("Selected Next Hop="<<it->face->getId()<<", LET="<<it->let<<", LAP="<<it->lap<<", SRTT="<<it->srtt<<", ISR="<<it->sisr);
+    // NFD_LOG_DEBUG("Selected Next Hop="<<it->face->getId()<<", LET="<<it->let<<", LAP="<<it->lap<<", SRTT="<<it->srtt<<", ISR="<<it->sisr);
     return it != normalizedFaceList.end() ? it->face : nullptr;
 }
 
@@ -354,8 +368,8 @@ MINE2::isInRegion(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> recvNode) {
 }
 
 bool
-MINE2::isNextHopEligible(const Face& inFace, const fib::NextHop& nexthop, ns3::Ptr<ns3::Node> node) {
-    if (nexthop.getFace().getId() == inFace.getId()) 
+MINE2::isNextHopEligible(const FaceEndpoint& ingress, const fib::NextHop& nexthop, ns3::Ptr<ns3::Node> node) {
+    if (nexthop.getFace().getId() == ingress.face.getId()) 
         return false;
     
     if (nexthop.getFace().getId()==m_nodes.GetN()+256) 
@@ -461,9 +475,12 @@ MINE2::calculateLET(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> revNode) {
     double n = mobility1->GetPosition().y - mobility2->GetPosition().y;
     double p = mobility1->GetVelocity().x - mobility2->GetVelocity().x;
     double q = mobility1->GetVelocity().y - mobility2->GetVelocity().y;
-    if (p==0 && q==0) {return 1e6;} //相对速度为0时，用1e6表示无限大
+    // NFD_LOG_DEBUG("srcNode="<<sendNode->GetId()<<", X="<<mobility1->GetPosition().x<<", Y="<<mobility1->GetPosition().y<<", Vx="<<mobility1->GetVelocity().x<<", Vy="<<mobility1->GetVelocity().y);
+    // NFD_LOG_DEBUG("revNode="<<revNode->GetId()<<", X="<<mobility2->GetPosition().x<<", Y="<<mobility2->GetPosition().y<<", Vx="<<mobility2->GetVelocity().x<<", Vy="<<mobility2->GetVelocity().y);
+    if (p==0 && q==0) {return LETMAX;} //相对速度为0时，用1e6表示无限大
     double let = (-(m*p+n*q)+sqrt((pow(p,2)+pow(q,2))*pow(Rth,2) - pow(n*p-m*q, 2)) ) / (pow(p,2)+pow(q,2));
-    return let;
+    // NFD_LOG_DEBUG("m="<<m<<", n="<<n<<", p="<<p<<", q="<<q<<", LET="<<let);
+    return let>=LETMAX? LETMAX : let;
 }
 
 double

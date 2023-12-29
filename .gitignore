@@ -9,6 +9,10 @@ build/
 *.log
 *.pcap
 *.tcl
+*.csv
+*.png
 .vscode/
+logs/
+logs_delay/
+logs_results/
 mobility-traces/
-results/

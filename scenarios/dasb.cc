@@ -120,7 +120,7 @@ std::cout<<MobilityTrace<<endl;
 		ndn::AppDelayTracer::Install(nodes[ConsumerId], DelayTrace);
 		// ndn::CsTracer::InstallAll("results/cs_prfs.log", MilliSeconds(1000));
 
-		Simulator::Stop(Seconds(60));
+		Simulator::Stop(Seconds(100));
 		Simulator::Run();
 		Simulator::Destroy();
 		std::cout << "end";

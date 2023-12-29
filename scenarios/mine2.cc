@@ -55,6 +55,7 @@ namespace ns3
 		nodes.Create(N);
 		
 		std::string phyMode("OfdmRate6Mbps");
+
 		YansWifiPhyHelper wifiPhy;
 		YansWifiChannelHelper channelHelper = YansWifiChannelHelper::Default();
 		Ptr<YansWifiChannel> channel = channelHelper.Create();
@@ -80,17 +81,17 @@ namespace ns3
 		ns2Mobiity.Install();
 
 		// Install NDN stack on all nodes
-		extern shared_ptr<::nfd::Face> WifiApStaDeviceBroadcastCallback(
+		extern shared_ptr<::nfd::Face> WifiApStaDeviceCallback(
 			Ptr<Node> node, Ptr<ndn::L3Protocol> ndn, Ptr<NetDevice> device);
 		ndn::StackHelper ndnHelper;
 		ndnHelper.AddFaceCreateCallback(WifiNetDevice::GetTypeId(),
-										MakeCallback(&WifiApStaDeviceBroadcastCallback));
+										MakeCallback(&WifiApStaDeviceCallback));
 
 		ndnHelper.setCsSize(100);
 		ndnHelper.InstallAll();
 		std::cout << "Install stack\n";
 
-		ndn::StrategyChoiceHelper::InstallAll("/", "/localhost/nfd/strategy/PRFS/%FD%01");
+		ndn::StrategyChoiceHelper::InstallAll("/", "/localhost/nfd/strategy/MINE2/%FD%01");
 
 		// Installing Consumer
 		ndn::AppHelper consumerHelper("ns3::ndn::ConsumerCbr");

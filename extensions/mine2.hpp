@@ -59,7 +59,9 @@ public:
     void
     afterContentStoreHit(const shared_ptr<pit::Entry>& pitEntry,
                                 const FaceEndpoint& ingress, const Data& data) override;
-
+void
+afterReceiveLoopedInterest(const FaceEndpoint& ingress, const Interest& interest,
+                                     pit::Entry& pitEntry) override;
 
     /*内容发现，当FIB表中没有匹配项时触发*/
     void
@@ -80,11 +82,11 @@ public:
 
     /*在FIB中选择下一跳*/
     Face*
-    selectFIB(ns3::Ptr<ns3::Node> localNode, const Interest& interest, const fib::NextHopList& nexthops, const fib::Entry& fibEntry);
+    selectFIB(ns3::Ptr<ns3::Node> localNode, const Interest& interest, const FaceEndpoint& ingress, const fib::NextHopList& nexthops, const fib::Entry& fibEntry);
 
     /*更新当前节点的FIB，周期性触发*/
     void
-    updateFIB(const ndn::Name prefix, ns3::Ptr<ns3::Node> srcNode, ns3::Ptr<ns3::Node> providerNode, const fib::NextHopList& nexthops);
+    updateFIB(const ndn::Name prefix, ns3::Ptr<ns3::Node> srcNode, ns3::Ptr<ns3::Node> providerNode, const fib::NextHopList& nexthops, const fib::Entry& fibEntry);
 
     /*判断是否在相交区域*/
     bool
@@ -144,7 +146,7 @@ public:
 
     // 判断下一跳是否可行
     bool
-    isNextHopEligible(const Face& inFace,  const fib::NextHop& nexthop, ns3::Ptr<ns3::Node> node);
+    isNextHopEligible(const FaceEndpoint& ingress,  const fib::NextHop& nexthop, ns3::Ptr<ns3::Node> node);
 
     /* 得到当前node
      * 通过判断this指针与哪个node的strategy指向相同对象，来判别当前的node
@@ -160,6 +162,7 @@ private:
     static const double Omega;
     static const double Alpha;
     static const double Beta;
+    static const double LETMAX; // 由于读取tcl不准确，因此设定一个LETMAX值，超出此时默认LET达到最大
 
 	ns3::NodeContainer m_nodes;
 	// std::vector<MINE::weightTableEntry> m_WT;
@@ -173,7 +176,7 @@ private:
 	PUBLIC_WITH_TESTS_ELSE_PRIVATE : static const time::milliseconds RETX_SUPPRESSION_INITIAL;
 	static const time::milliseconds RETX_SUPPRESSION_MAX;
 	RetxSuppressionExponential m_retxSuppression;
-
+// Forwarder& m_forwarder;
 };
 
 } // namespace mine
