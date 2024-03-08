@@ -21,7 +21,7 @@ LSIF::LSIF(Forwarder &forwarder, const Name &name)
 	  m_retxSuppression(RETX_SUPPRESSION_INITIAL, RetxSuppressionExponential::DEFAULT_MULTIPLIER,
 						RETX_SUPPRESSION_MAX),
 	  m_forwarder(forwarder),
-	  m_nodes(ns3::NodeContainer::GetGlobal()), m_Rth(500.0), m_LET_alpha(5.0)
+	  m_nodes(ns3::NodeContainer::GetGlobal()), m_Rth(200.0), m_LET_alpha(5.0)
 {
 	ParsedInstanceName parsed = parseInstanceName(name);
 	if (!parsed.parameters.empty())

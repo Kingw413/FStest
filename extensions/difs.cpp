@@ -21,7 +21,7 @@ DIFS::DIFS(Forwarder &forwarder, const Name &name)
 	  m_retxSuppression(RETX_SUPPRESSION_INITIAL, RetxSuppressionExponential::DEFAULT_MULTIPLIER,
 						RETX_SUPPRESSION_MAX),
 	  m_forwarder(forwarder),
-	  m_nodes(ns3::NodeContainer::GetGlobal()), m_Rth(500)
+	  m_nodes(ns3::NodeContainer::GetGlobal()), m_Rth(200)
 {
 	ParsedInstanceName parsed = parseInstanceName(name);
 	if (!parsed.parameters.empty())
@@ -75,12 +75,14 @@ void DIFS::afterReceiveInterest(const FaceEndpoint &ingress, const Interest &int
 
     DecisionEntry idealSolution = this->calculateIdealSolution(decisionList);
     DecisionEntry negIdealSolution = this->calculateNegativeIdealSolution(decisionList);
-
     DecisionEntry optimalDecision = this->getOptimalDecision(decisionList, idealSolution, negIdealSolution);
 
     if (optimalDecision.node->GetId() == receiveNode->GetId()) {
         NFD_LOG_INFO("do Send Interest" << interest << " from=" << ingress << " to=" << egress);
         this->sendInterest(pitEntry, egress, interest);
+    }
+    else {
+        this->setExpiryTimer(pitEntry, 0_ms);
     }
 }
 
@@ -164,7 +166,7 @@ DIFS::customNormalize(std::vector<DIFS::DecisionEntry>& decisionList) {
         decisionEntry.Distance = 1.0/3.0 * decisionEntry.Distance / sqrt(distanceSum+0.001);
         decisionEntry.RelativeVel = 1.0/3.0 * decisionEntry.RelativeVel / sqrt(velSum+0.001);
         decisionEntry.LET = 1.0/3.0 * decisionEntry.LET / sqrt(letSum+0.001);
-        NFD_LOG_DEBUG("Node="<<decisionEntry.node->GetId()<<", D="<<decisionEntry.Distance<<", S="<<decisionEntry.RelativeVel<<", L="<<decisionEntry.LET);
+        // NFD_LOG_DEBUG("Node="<<decisionEntry.node->GetId()<<", D="<<decisionEntry.Distance<<", S="<<decisionEntry.RelativeVel<<", L="<<decisionEntry.LET);
     }
     return decisionList;
 }
@@ -177,7 +179,7 @@ DIFS::calculateIdealSolution(std::vector<DIFS::DecisionEntry>& decisionList) {
         ( std::min_element(decisionList.begin(), decisionList.end(), [](const auto& a, const auto& b) { return a.RelativeVel < b.RelativeVel; }) )->RelativeVel,
         ( std::max_element(decisionList.begin(), decisionList.end(), [](const auto& a, const auto& b) { return a.LET < b.LET; }) )->LET
     );
-    NFD_LOG_DEBUG("Ideal: D="<<idealSolution.Distance<<", S="<<idealSolution.RelativeVel<<", L="<<idealSolution.LET);
+    // NFD_LOG_DEBUG("Ideal: D="<<idealSolution.Distance<<", S="<<idealSolution.RelativeVel<<", L="<<idealSolution.LET);
     return idealSolution;
 }
 
@@ -189,7 +191,7 @@ DIFS::calculateNegativeIdealSolution(std::vector<DIFS::DecisionEntry>& decisionL
         std::max_element(decisionList.begin(), decisionList.end(), [](const auto& a, const auto& b) { return a.RelativeVel < b.RelativeVel; })->RelativeVel,
         std::min_element(decisionList.begin(), decisionList.end(), [](const auto& a, const auto& b) { return a.LET < b.LET; })->LET
     );
-    NFD_LOG_DEBUG("Neg: D="<<negativeIdealSolution.Distance<<", S="<<negativeIdealSolution.RelativeVel<<", L="<<negativeIdealSolution.LET);
+    // NFD_LOG_DEBUG("Neg: D="<<negativeIdealSolution.Distance<<", S="<<negativeIdealSolution.RelativeVel<<", L="<<negativeIdealSolution.LET);
 
     return negativeIdealSolution;
 }
@@ -200,16 +202,16 @@ DIFS::calculateCloseness(const DIFS::DecisionEntry& entry, const DIFS::DecisionE
     double relativeVelIdealDeviation = entry.RelativeVel - idealSolution.RelativeVel;
     double LETIdealDeviation = entry.LET - idealSolution.LET;
     double closenessToIdeal = sqrt( pow(distanceIdealDeviation, 2) + pow(relativeVelIdealDeviation, 2) +pow(LETIdealDeviation, 2) );
-    NFD_LOG_DEBUG("disToIdeal="<<distanceIdealDeviation<<", velToIdeal="<<relativeVelIdealDeviation<<", letIdeal="<<LETIdealDeviation<<" clossToIdeal="<<closenessToIdeal);
+    // NFD_LOG_DEBUG("disToIdeal="<<distanceIdealDeviation<<", velToIdeal="<<relativeVelIdealDeviation<<", letIdeal="<<LETIdealDeviation<<" clossToIdeal="<<closenessToIdeal);
 
     double distanceNegDeviation = entry.Distance - negativeIdealSolution.Distance;
     double relativeVelNegDeviation = entry.RelativeVel - negativeIdealSolution.RelativeVel;
     double LETNegDeviation = entry.LET - negativeIdealSolution.LET;
     double closenessToNeg = sqrt( pow(distanceNegDeviation, 2) + pow(relativeVelNegDeviation, 2) +pow(LETNegDeviation, 2) );
-    NFD_LOG_DEBUG("disToNeg="<<distanceNegDeviation<<", velToIdeal="<<relativeVelNegDeviation<<", letIdeal="<<LETNegDeviation<<" clossToIdeal="<<closenessToNeg);
+    // NFD_LOG_DEBUG("disToNeg="<<distanceNegDeviation<<", velToIdeal="<<relativeVelNegDeviation<<", letIdeal="<<LETNegDeviation<<" clossToIdeal="<<closenessToNeg);
 
     double closeness = closenessToNeg / (closenessToIdeal + closenessToNeg);
-    NFD_LOG_DEBUG("node="<<entry.node->GetId()<<", closeness="<<closeness);
+    // NFD_LOG_DEBUG("node="<<entry.node->GetId()<<", closeness="<<closeness);
 
     return closeness;
 }
@@ -223,7 +225,7 @@ DIFS::getOptimalDecision(std::vector<DIFS::DecisionEntry>& decisionList, const D
     }
     size_t optIndex = std::distance(closenessValues.begin(), std::max_element(closenessValues.begin(), closenessValues.end()));
     DecisionEntry optimalDecision = decisionList[optIndex];
-    NFD_LOG_DEBUG("Optimal Decision = "<<optimalDecision.node->GetId());
+    // NFD_LOG_DEBUG("Optimal Decision = "<<optimalDecision.node->GetId());
     return optimalDecision;
 }
 

@@ -21,7 +21,7 @@ VNDN::VNDN(Forwarder &forwarder, const Name &name)
 	: Strategy(forwarder), 
 	  m_retxSuppression(RETX_SUPPRESSION_INITIAL, RetxSuppressionExponential::DEFAULT_MULTIPLIER,
 						RETX_SUPPRESSION_MAX),
-	  m_nodes(ns3::NodeContainer::GetGlobal()), m_Rth(500)
+	  m_nodes(ns3::NodeContainer::GetGlobal()), m_Rth(200.0)
 {
 	ParsedInstanceName parsed = parseInstanceName(name);
 	if (!parsed.parameters.empty())
@@ -69,6 +69,8 @@ void VNDN::afterReceiveInterest(const FaceEndpoint &ingress, const Interest &int
 		if (it != m_waitTable.end()) {
 			this->cancelSend(interest, it->eventId);
 			this->deleteEntry(it);
+			// 取消发送后删除对应的PIT表项
+			this->setExpiryTimer(pitEntry, 0_ms);
 			return;
 		}
 		const auto transport = ingress.face.getTransport();
@@ -93,6 +95,9 @@ VNDN::afterReceiveLoopedInterest(const FaceEndpoint& ingress, const Interest& in
 	if (it != m_waitTable.end()) {
 		this->cancelSend(interest, it->eventId);
 		this->deleteEntry(it);
+		// 取消发送后删除对应的PIT表项
+		std::shared_ptr<nfd::pit::Entry> sharedPitEntry(&pitEntry, [] (nfd::pit::Entry*) {});
+		this->setExpiryTimer(sharedPitEntry, 0_ms);
 	}
 }
 
@@ -152,14 +157,14 @@ VNDN::addEntry(const Name &interestName, uint32_t nonce, ns3::Time deferTime, ns
 {
 	m_tableEntry newEntry(interestName, nonce, deferTime, eventId);
 	m_waitTable.push_back(newEntry);
-	NFD_LOG_DEBUG("Add WaitTable Entry: ("<<interestName <<", "<<nonce<<", " <<deferTime.GetSeconds()<<", " <<eventId.GetUid()<<")");
+	// NFD_LOG_DEBUG("Add WaitTable Entry: ("<<interestName <<", "<<nonce<<", " <<deferTime.GetSeconds()<<", " <<eventId.GetUid()<<")");
 }
 
 void
 VNDN::deleteEntry(std::vector<VNDN::m_tableEntry>::iterator it)
 {
 	if (it != m_waitTable.end()) {
-		NFD_LOG_DEBUG("Delete WaitTable Entry: ("<< it->interestName <<", "<< it->nonce<<", " << it->deferTime.GetSeconds()<<", " << it->eventId.GetUid()<<")");
+		// NFD_LOG_DEBUG("Delete WaitTable Entry: ("<< it->interestName <<", "<< it->nonce<<", " << it->deferTime.GetSeconds()<<", " << it->eventId.GetUid()<<")");
 		m_waitTable.erase(it);
 	}
 }

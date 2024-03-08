@@ -1,6 +1,7 @@
 #include "lisic.hpp"
 #include "ns3/ndnSIM/NFD/daemon/fw/algorithm.hpp"
 #include "common/logger.hpp"
+#include "common/global.hpp"
 #include "ndn-wifi-net-device-transport-broadcast.hpp"
 #include "ns3/mobility-model.h"
 #include "ns3/ndnSIM/model/ndn-l3-protocol.hpp"
@@ -22,7 +23,7 @@ LISIC::LISIC(Forwarder &forwarder, const Name &name)
 	  m_retxSuppression(RETX_SUPPRESSION_INITIAL, RetxSuppressionExponential::DEFAULT_MULTIPLIER,
 						RETX_SUPPRESSION_MAX),
 	  m_forwarder(forwarder),
-	  m_nodes(ns3::NodeContainer::GetGlobal()), m_Rth(500.0), m_alpha(1.0e9)
+	  m_nodes(ns3::NodeContainer::GetGlobal()), m_Rth(200.0), m_alpha(1.0e9)
 {
 	ParsedInstanceName parsed = parseInstanceName(name);
 	if (!parsed.parameters.empty())
@@ -66,6 +67,8 @@ void LISIC::afterReceiveInterest(const FaceEndpoint &ingress, const Interest &in
 		if (it != m_waitTable.end()) {
 			this->cancelSend(interest, it->eventId);
 			this->deleteEntry(it);
+			// 取消发送后删除对应的PIT表项
+			this->setExpiryTimer(pitEntry, 0_ms);
 			return;
 		}
 		const auto transport = ingress.face.getTransport();
@@ -79,17 +82,22 @@ void LISIC::afterReceiveInterest(const FaceEndpoint &ingress, const Interest &in
 		auto eventId = ns3::Simulator::Schedule(ns3::Seconds(deferTime), &LISIC::doSend, this, pitEntry, egress, ingress, interest);
 		this->addEntry(interest.getName(), interest.getNonce(), ns3::Seconds(deferTime), eventId);
 	}
-	return;
 }
 
 void
 LISIC::afterReceiveLoopedInterest(const FaceEndpoint& ingress, const Interest& interest,
                              pit::Entry& pitEntry) {
-	NFD_LOG_DEBUG("afterReceiveLoopedInterest Interest=" << interest<< " in=" << ingress);
+	// NFD_LOG_DEBUG("afterReceiveLoopedInterest Interest=" << interest<< " in=" << ingress);
 	auto it = findEntry(interest.getName(), interest.getNonce());
 	if (it != m_waitTable.end()) {
 		this->cancelSend(interest, it->eventId);
 		this->deleteEntry(it);
+		// 取消发送后删除对应的PIT表项（实际上下面的代码好像并不能完成这个目的）
+		shared_ptr<pit::Entry> newpitEntry = m_forwarder.getPit().find(interest);
+		this->setExpiryTimer(newpitEntry, 0_ms);
+		// NFD_LOG_DEBUG("InRecords="<<pitEntry.getInRecords().size());
+		// newpitEntry->expiryTimer.cancel();
+		// m_forwarder.getPit().erase(newpitEntry.get());
 	}
 }
 
@@ -132,14 +140,14 @@ LISIC::addEntry(const Name &interestName, uint32_t nonce, ns3::Time deferTime, n
 {
 	m_tableEntry newEntry(interestName, nonce, deferTime, eventId);
 	m_waitTable.push_back(newEntry);
-	NFD_LOG_DEBUG("Add WaitTable Entry: ("<<interestName <<", "<<nonce<<", " <<deferTime.GetSeconds()<<", " <<eventId.GetUid()<<")");
+	// NFD_LOG_DEBUG("Add WaitTable Entry: ("<<interestName <<", "<<nonce<<", " <<deferTime.GetSeconds()<<", " <<eventId.GetUid()<<")");
 }
 
 void
 LISIC::deleteEntry(std::vector<LISIC::m_tableEntry>::iterator it)
 {
 	if (it != m_waitTable.end()) {
-		NFD_LOG_DEBUG("Delete WaitTable Entry: ("<< it->interestName <<", "<< it->nonce<<", " << it->deferTime.GetSeconds()<<", " << it->eventId.GetUid()<<")");
+		// NFD_LOG_DEBUG("Delete WaitTable Entry: ("<< it->interestName <<", "<< it->nonce<<", " << it->deferTime.GetSeconds()<<", " << it->eventId.GetUid()<<")");
 		m_waitTable.erase(it);
 	}
 }

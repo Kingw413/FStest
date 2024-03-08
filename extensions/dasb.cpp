@@ -17,7 +17,7 @@ NFD_LOG_INIT(DASB);
 const time::milliseconds DASB::RETX_SUPPRESSION_INITIAL(10);
 const time::milliseconds DASB::RETX_SUPPRESSION_MAX(250);
 const double DASB::DEFER_TIME_MAX(2e-3);
-const double DASB::TRANSMISSION_RANGE(500);
+const double DASB::TRANSMISSION_RANGE(200);
 const double DASB::SUPPRESSION_ANGLE(acos(-1)/4);
 
 DASB::DASB(Forwarder &forwarder, const Name &name)
@@ -75,6 +75,8 @@ void DASB::afterReceiveInterest(const FaceEndpoint &ingress, const Interest &int
 				NFD_LOG_DEBUG("Should Suppress!");
 				this->cancelSend(it->eventId);
 				this->deleteEntry(it, m_waitTableInt);
+				// 取消发送后删除对应的PIT表项
+				this->setExpiryTimer(pitEntry, 0_ms);
 			}
 			return;
 		}
@@ -100,6 +102,9 @@ DASB::afterReceiveLoopedInterest(const FaceEndpoint& ingress, const Interest& in
 	if (shouldSuppress(ingress, it, m_waitTableInt)) {
 		this->cancelSend(it->eventId);
 		this->deleteEntry(it, m_waitTableInt);
+		// 取消发送后删除对应的PIT表项
+		std::shared_ptr<nfd::pit::Entry> sharedPitEntry(&pitEntry, [] (nfd::pit::Entry*) {});
+		this->setExpiryTimer(sharedPitEntry, 0_ms);
 	}
 }
 
@@ -115,15 +120,15 @@ DASB::doSendInterest(const shared_ptr<pit::Entry> &pitEntry,
 
 void DASB::afterReceiveData(const shared_ptr<pit::Entry> &pitEntry,
 							const FaceEndpoint &ingress, const Data &data) {
-	NFD_LOG_DEBUG("afterReceiveData pitEntry=" << pitEntry->getName()
-											   << " in=" << ingress << " data=" << data.getName());
+	// NFD_LOG_DEBUG("afterReceiveData pitEntry=" << pitEntry->getName()
+											//    << " in=" << ingress << " data=" << data.getName());
 
 	bool isTheConsumer = false;
 	auto now = time::steady_clock::now();
-	if (pitEntry->getInRecords().size() == 0) {
-		NFD_LOG_DEBUG("pitEntry no InRecords");
-		return;
-	}
+	// if (pitEntry->getInRecords().size() == 0) {
+	// 		NFD_LOG_DEBUG("pitEntry no InRecords");
+	// 	return;
+	// }
 	const auto &inface = (pitEntry->getInRecords().begin()->getFace());
 	auto egress = FaceEndpoint(inface, 0);
 	// 判断是否是对应的Consumer
@@ -139,7 +144,7 @@ void DASB::afterReceiveData(const shared_ptr<pit::Entry> &pitEntry,
 	if (ingress.face.getId() == 256 + m_nodes.GetN() || isTheConsumer)
 	{
 		this->sendData(pitEntry, data, egress);
-		NFD_LOG_DEBUG("do Send Data=" << data << "to= " << egress);
+		NFD_LOG_DEBUG("do Send Data=" << data.getName() << "to= " << egress);
 		return;
 	}
 
@@ -148,11 +153,11 @@ void DASB::afterReceiveData(const shared_ptr<pit::Entry> &pitEntry,
 	{
 		if (shouldSuppress(ingress, it, m_waitTableDat))
 		{
-			NFD_LOG_DEBUG("had entry and in Suppress Region");
+			// NFD_LOG_DEBUG("had entry and in Suppress Region");
 			this->cancelSend(it->eventId);
 			this->deleteEntry(it, m_waitTableDat);
 		}
-		NFD_LOG_DEBUG("had entry but not in Suppress Region");
+		// NFD_LOG_DEBUG("had entry but not in Suppress Region");
 		return;
 	}
 
@@ -172,7 +177,7 @@ void DASB::afterReceiveData(const shared_ptr<pit::Entry> &pitEntry,
 	int sendNodeId = (ingress.face.getId() - 257) + (receiveNode->GetId() + 257 <= ingress.face.getId());
 	ns3::Ptr<ns3::Node> sendNode = m_nodes[sendNodeId];
 	double deferTime = calculateDeferTime(sendNode, receiveNode);
-	NS_LOG_DEBUG("Wait Time=" << deferTime << ", to send " << data << " from=" << ingress << "to= " << egress);
+	NS_LOG_DEBUG("Wait Time=" << deferTime << ", to send " << data.getName() << " from=" << ingress << " to= " << egress);
 	auto eventId = ns3::Simulator::Schedule(ns3::Seconds(deferTime), &DASB::doSendData, this, pitEntry, data, egress);
 	this->addEntry(data.getName(), 0, sendNode, ns3::Seconds(deferTime), eventId, m_waitTableDat);
 }
@@ -243,7 +248,7 @@ DASB::addEntry(const Name &name, uint32_t nonce, ns3::Ptr<ns3::Node> preNode, ns
 {
 	m_tableEntry newEntry(name, nonce, preNode, deferTime, eventId);
         table.push_back(newEntry);
-        NFD_LOG_DEBUG("Add WaitTable Entry: ("<<name <<", "<<nonce<<", " <<preNode->GetId()<<", "<<deferTime.GetSeconds()<<", " <<eventId.GetUid()<<")");
+        // NFD_LOG_DEBUG("Add WaitTable Entry: ("<<name <<", "<<nonce<<", " <<preNode->GetId()<<", "<<deferTime.GetSeconds()<<", " <<eventId.GetUid()<<")");
 }
 
 
@@ -251,7 +256,7 @@ void
 DASB::deleteEntry(std::vector<DASB::m_tableEntry>::iterator it, std::vector<m_tableEntry>& table)
 {
     if (it != table.end()) {
-		NFD_LOG_DEBUG("Delete WaitTable Entry: ("<< it->interestName <<", "<< it->nonce<<", " << it->deferTime.GetSeconds()<<", " << it->eventId.GetUid()<<")");
+		// NFD_LOG_DEBUG("Delete WaitTable Entry: ("<< it->interestName <<", "<< it->nonce<<", " << it->deferTime.GetSeconds()<<", " << it->eventId.GetUid()<<")");
 		table.erase(it);
 	}
 }

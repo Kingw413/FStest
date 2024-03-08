@@ -24,7 +24,7 @@ namespace mine2 {
 NFD_LOG_INIT(MINE2);
 NFD_REGISTER_STRATEGY(MINE2);
 
-const double MINE2::Rth(500.0);
+const double MINE2::Rth(200.0);
 const double MINE2::Mu(0.33);
 const double MINE2::Phi(0.33);
 const double MINE2::Omega(0.33); 

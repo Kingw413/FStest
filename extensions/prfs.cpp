@@ -26,7 +26,7 @@ const time::milliseconds PRFS::RETX_SUPPRESSION_MAX(250);
 PRFS::PRFS(Forwarder& forwarder, const Name& name)
     : Strategy(forwarder),
       ProcessNackTraits(this),
-      m_Rth(500.0),
+      m_Rth(200.0),
       m_LET_alpha(1.0),
       m_nodes(ns3::NodeContainer::GetGlobal()),
       m_retxSuppression(RETX_SUPPRESSION_INITIAL,
@@ -66,9 +66,11 @@ void PRFS::afterReceiveInterest(const FaceEndpoint& ingress,
     // 到达producer则直接转发给上层app
     if (egress.face.getId() == 256+m_nodes.GetN()) {
         this->sendInterest(pitEntry, egress, interest);
+        NFD_LOG_DEBUG("producer receive Interest="<<interest << " from=" << ingress << " to=" << egress);
         return;
     }
 
+    // 转发流程核心
     bool isRelay = false;
      // consumer端在两个方向上转发
     if (wifiTrans == nullptr) {
@@ -98,8 +100,12 @@ void PRFS::afterReceiveInterest(const FaceEndpoint& ingress,
         }
     }
     if (isRelay) {
-        NFD_LOG_DEBUG("do Send Interest="<<interest << " from=" << ingress << "to=" << egress);
+        NFD_LOG_DEBUG("do Send Interest="<<interest << " from=" << ingress << " to=" << egress);
 	    this->sendInterest(pitEntry, egress, interest);
+    }
+    // 对于不是forwarder的节点，不应当创建pit，将其删除，防止后续收到Data包再广播，导致不必要的DATA冗余。
+    else {
+        this -> setExpiryTimer(pitEntry, 0_ms);
     }
 }
 
@@ -107,9 +113,12 @@ void
 PRFS::afterReceiveData(const shared_ptr<pit::Entry> &pitEntry,
 							const FaceEndpoint &ingress, const Data &data)
 {
-	// NFD_LOG_DEBUG("afterReceiveData Interest=" << pitEntry->getInterest().getName()<<" Nonce="<<pitEntry->getInterest().getNonce()<< " in=" << ingress);
 	Interest interest = pitEntry->getInterest();
 	const auto& inface =  (pitEntry->getInRecords().begin()->getFace());
+    // auto outface = pitEntry->getOutRecords().size();
+    // if (!outface) {
+    //     NFD_LOG_DEBUG("Non Forwarder receive Data, dont't forward");
+    // }
     auto egress = FaceEndpoint(inface,0);
 	this->sendData(pitEntry,data,egress);
     NFD_LOG_DEBUG("do Send Data="<<data.getName()<<", from="<<ingress<<", to="<<egress);
@@ -183,8 +192,9 @@ PRFS::isRoadDirection(ns3::Ptr<ns3::Node> node, ns3::Ptr<ns3::Node> remote_node)
     ns3::Vector3D nodePos = mobility->GetPosition();
     ns3::Ptr<ns3::MobilityModel> remoteMob = remote_node->GetObject<ns3::MobilityModel>();
     ns3::Vector3D remotePos = remoteMob->GetPosition();
-    ns3::Vector3D direction = remoteMob->GetVelocity();
-    if (direction.x==0 && direction.y==0) { direction.x += 0.001; direction.y  +=0.001;}
+    // ns3::Vector3D direction = remoteMob->GetVelocity();
+    ns3::Vector3D direction = {1.0, 0.0, 0.0};
+    // if (direction.x==0 && direction.y==0) { direction.x += 0.001; direction.y  +=0.001;}
     if ( (remotePos.x-nodePos.x) * (direction.x) + (remotePos.y-nodePos.y) * (direction.y) >= 0 ) {return true;}
     return false;
 }
@@ -217,7 +227,8 @@ PRFS::caculateDR(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> receiveNode) 
     ns3::Vector3D nodePos = mobility->GetPosition();
     ns3::Ptr<ns3::MobilityModel> remoteMob = receiveNode->GetObject<ns3::MobilityModel>();
     ns3::Vector3D remotePos = remoteMob->GetPosition();
-    ns3::Vector3D direction = remoteMob->GetVelocity();
+    // ns3::Vector3D direction = remoteMob->GetVelocity();
+    ns3::Vector3D direction = {1.0, 0.0, 0.0};
     double angle = std::atan2(direction.x, direction.y) - std::atan2( remotePos.x-nodePos.x, remotePos.y-nodePos.y);
     double dr = abs(eculid * cos(angle));
     return dr;

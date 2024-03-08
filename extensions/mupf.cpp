@@ -21,7 +21,7 @@ namespace fw {
 NFD_LOG_INIT(MUPF);
 NFD_REGISTER_STRATEGY(MUPF);
 
-const double MUPF::Rth(500.0);
+const double MUPF::Rth(200.0);
 const double MUPF::Mu(0.33);
 const double MUPF::Phi(0.33);
 const double MUPF::Omega(0.33); 
