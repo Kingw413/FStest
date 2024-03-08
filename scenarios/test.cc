@@ -45,7 +45,7 @@ namespace ns3
 		std::string phyMode("OfdmRate6Mbps");
 
 		NodeContainer nodes;
-		nodes.Create(100);
+		nodes.Create(4);
 
 		YansWifiPhyHelper wifiPhy;
 		YansWifiChannelHelper channelHelper = YansWifiChannelHelper::Default();
@@ -67,56 +67,38 @@ namespace ns3
 
 		NetDeviceContainer devices = wifi80211p.Install(wifiPhy, wifi80211pMac, nodes);
 
-		// Ns2MobilityHelper ns2Mobiity = Ns2MobilityHelper("/home/whd/ndnSIM2.8/wireless-macspec/scenarios/manhattan.tcl");
-		// ns2Mobiity.Install();
-		// Ptr<ListPositionAllocator> positionAlloc =
-		// 	CreateObject<ListPositionAllocator>();
-		// positionAlloc->Add(Vector(0, 0, 0));
-		// positionAlloc->Add(Vector(40, 0, 0));
-		// positionAlloc->Add(Vector(80, 0, 0));
-		// positionAlloc->Add(Vector(150, 0, 0));
 
-		// MobilityHelper mobility_STA;
-		// mobility_STA.SetPositionAllocator(positionAlloc);
-		// mobility_STA.SetMobilityModel("ns3::ConstantPositionMobilityModel");
-		// mobility_STA.Install(nodes);
-
-	for (const auto& node:nodes) {
-		    Ptr<ConstantVelocityMobilityModel> mobility = CreateObject<ConstantVelocityMobilityModel>();
-	mobility->SetPosition(Vector(400*node->GetId(),0,0));
-    mobility->SetVelocity(Vector(10, 0, 0));
-		node->AggregateObject(mobility);
-	}
+	// for (const auto& node:nodes) {
+	// 	    Ptr<ConstantVelocityMobilityModel> mobility = CreateObject<ConstantVelocityMobilityModel>();
+	// mobility->SetPosition(Vector(200*node->GetId(),0,0));
+    // mobility->SetVelocity(Vector(10, 0, 0));
+	// 	node->AggregateObject(mobility);
+	// }
     
+    Ptr<ListPositionAllocator> pos = CreateObject<ListPositionAllocator>();
+    pos->Add(Vector(0.0, 0.0, 0.0));
+    pos->Add(Vector(2.4, 0.0, 0.0));
+    pos->Add(Vector(480.0, 0.0, 0.0));
+    pos->Add(Vector(600.0, 0.0, 0.0));
+    MobilityHelper mobilityHelper;
+    mobilityHelper.SetPositionAllocator(pos);
+    mobilityHelper.SetMobilityModel("ns3::ConstantPositionMobilityModel");
+    mobilityHelper.Install(nodes);
+
 	// 	Ns2MobilityHelper ns2Mobiity = Ns2MobilityHelper("mobility-traces/1.2_highway_changeNum/v90/n100_v90.tcl");
 	// 	ns2Mobiity.Install();	
 
-	
-
-		//   Ptr<ListPositionAllocator> positionAlloc =
-		//     CreateObject<ListPositionAllocator>();
-		// positionAlloc->Add(Vector(0, 0, 0));
-		// positionAlloc->Add(Vector(50, 0, 0));
-		// positionAlloc->Add(Vector(90, 0, 0));
-		// positionAlloc->Add(Vector(160, 0, 0));
-
-
-		// MobilityHelper mobility_STA;
-		// mobility_STA.SetPositionAllocator(positionAlloc);
-		// mobility_STA.SetMobilityModel("ns3::ConstantPositionMobilityModel");
-		// mobility_STA.Install(nodes);
-
 		// Install NDN stack on all nodes
-		extern shared_ptr<::nfd::Face> WifiApStaDeviceBroadcastCallback(
+		extern shared_ptr<::nfd::Face> WifiApStaDeviceCallback(
 			Ptr<Node> node, Ptr<ndn::L3Protocol> ndn, Ptr<NetDevice> device);
 		ndn::StackHelper ndnHelper;
 		ndnHelper.AddFaceCreateCallback(WifiNetDevice::GetTypeId(),
-										MakeCallback(&WifiApStaDeviceBroadcastCallback));
+										MakeCallback(&WifiApStaDeviceCallback));
 		ndnHelper.setCsSize(0);
 		ndnHelper.InstallAll();
 		std::cout << "Install stack\n";
 
-		ndn::StrategyChoiceHelper::InstallAll("/", "/localhost/nfd/strategy/VNDN/%FD%01");
+		ndn::StrategyChoiceHelper::InstallAll("/", "/localhost/nfd/strategy/MINE2/%FD%01");
 
 		// Installing Consumer
 		ndn::AppHelper consumerHelper("ns3::ndn::ConsumerCbr");
@@ -141,17 +123,17 @@ namespace ns3
 		producer.SetAttribute("PayloadSize", UintegerValue(1024));
 		NodeContainer producercontainer;
 		// producercontainer.Add(nodes[3]);	
-		producercontainer.Add(nodes[50]);	
+		producercontainer.Add(nodes[3]);	
 		producer.Install(producercontainer);
 		std::cout << "Install producer\n";
 		std::cout << "Install consumers in " << consumerContainer.GetN()
 				  << " nodes and producers in " << producercontainer.GetN()
 				  << " nodes" << std::endl;
 
-		ndn::AppDelayTracer::Install(nodes[0], "results/test_delay.log");
+		ndn::AppDelayTracer::Install(nodes[0], "test/test_delay.log");
 		// ndn::CsTracer::InstallAll("results/cs_prfs.log", MilliSeconds(1000));
 
-		Simulator::Stop(Seconds(5));
+		Simulator::Stop(Seconds(10));
 		Simulator::Run();
 		Simulator::Destroy();
 		std::cout << "end";

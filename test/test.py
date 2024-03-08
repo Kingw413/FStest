@@ -2,7 +2,7 @@ import os
 import re
 import random
 import pandas as pd
-STRATEGY_VALUES =['vndn', 'lsif', 'prfs','mupf', 'mine2']
+STRATEGY_VALUES =['lisic', 'dasb', 'difs','prfs']
 RESULTS_VALUES = ['FIP', 'FDP', 'ISD' , 'ISR']
 TIME=100
 def calMetric(logfile: str, delayfile: str, num=100, rate=1.0): 
@@ -39,10 +39,11 @@ def calMetric(logfile: str, delayfile: str, num=100, rate=1.0):
     # hir = round( (len(delay_list)-producer_num)/(len(delay_list)+0.001), 4) 
     return [fip, fdp, delay, isr]
 
-def writeMetricToFile(folder_path: str, metrics_strategy: pd.DataFrame, run_time: int):
-    if not os.path.exists(folder_path):
-        os.makedirs(folder_path)
-    file_path = os.path.join(folder_path, f'run{run_time}.csv')
+def writeMetricToFile(file_path: str, metrics_strategy: pd.DataFrame, run_time: int):
+    # if not os.path.exists(folder_path):
+    #     os.makedirs(folder_path)
+    # file_path = os.path.join(folder_path, f'.csv')
+    # file_path = folder_path + ".csv"
     try:
         df = pd.read_csv(file_path, index_col=0)
     except FileNotFoundError:
@@ -51,43 +52,43 @@ def writeMetricToFile(folder_path: str, metrics_strategy: pd.DataFrame, run_time
     df = pd.concat([df, metrics_strategy], axis=1)
     df.to_csv(file_path)
 
-def runScenarios2(trace_folder_path: str):
+def runScenarios(trace_folder_path: str):
     # 构建输出log文件夹路径
     parts = trace_folder_path.split('/')
-    parts[0] = 'test/logs'
-    logs_folder_path = os.path.join(*parts)
-    parts[0] = 'test/logs_delay'
-    delaylogs_folder_path = os.path.join(*parts)
-    parts[0] = 'test/results'
-    results_folder_path = os.path.join(*parts)
 
+    filename_pattern = re.compile(r'n(\d+)\.tcl')
+
+    # 遍历文件夹下所有文件
     for filename in os.listdir(trace_folder_path):
-        filename = os.path.join(trace_folder_path,filename)
-        # 遍历文件夹下所有文件
-        for rate in range(1,8):
-            logfile_folder = os.path.join(logs_folder_path, f'rate{rate}')
-            delayfile_folder = os.path.join(delaylogs_folder_path, f'rate{rate}')
-            results_folder = os.path.join(results_folder_path, f'rate{rate}')
+        # 使用正则表达式匹配文件名中的 'n' 和 'v' 值
+        match = filename_pattern.match(filename)
+        num = int(match.group(1))
+        trace = os.path.join(trace_folder_path, filename)
+        logfile_folder =  'test/logs/' + parts[1] +  "/n"  + str(num) 
+        delayfile_folder =  'test/logs_delay/' + parts[1] +  "/n"  + str(num) 
+        results_folder =  'test/logs_results/' + parts[1] +  "/n"  + str(num) 
+        results_file =  'test/logs_results/' + parts[1] +  "/n"  + str(num) +".csv"
+        os.makedirs(logfile_folder, exist_ok=True)
+        os.makedirs(delayfile_folder, exist_ok=True)
+        # os.makedirs(results_folder, exist_ok=True)
 
-            for i in range(1):
-                consumer = 82
-                producer = 43
+        consumer = 0
+        producer = num
+        for strategy in STRATEGY_VALUES:
+            logfile = os.path.join(logfile_folder, f'{strategy}.log')
+            delayfile = os.path.join(delayfile_folder, f'{strategy}.log')
+            command = f'NS_LOG=ndn-cxx.nfd.{strategy.upper()}:ndn.Producer ./waf --run "{strategy} --num={num+1} --id1={consumer} --id2={producer}  --rate=1 --trace={trace}  --delay_log={delayfile}"> {logfile} 2>&1'
+            os.system(command)
+            print(logfile,delayfile)
+            
+            metric = calMetric(logfile, delayfile, num, 1)
+            metrics_strategy = pd.DataFrame({strategy : metric}, index=RESULTS_VALUES)
+            writeMetricToFile(results_file, metrics_strategy, 1)
+            print(f"num={num}_strategy={strategy} 仿真结束")
+        print(f"num={num}仿真结束")
 
-                for strategy in STRATEGY_VALUES:
-                    logfile = os.path.join(logfile_folder, f'{strategy}_run{i}.log')
-                    delayfile = os.path.join(delayfile_folder, f'{strategy}_run{i}.log')
-                    command = f'NS_LOG=ndn-cxx.nfd.{strategy.upper()}:ndn.Producer ./waf --run "{strategy} --num=100 --id1={consumer} --id2={producer}  --rate={rate} --trace={filename}  --delay_log={delayfile}"> {logfile} 2>&1'
-                    os.system(command)
-                    print(logfile,delayfile)
-                    
-                    metric = calMetric(logfile, delayfile, 100, rate)
-                    metrics_strategy = pd.DataFrame({strategy : metric}, index=RESULTS_VALUES)
-                    writeMetricToFile(results_folder, metrics_strategy, i)
-                print(f"rate={rate}_run={i} 仿真结束")
-            print(f"rate={rate}仿真结束")
-
-runScenarios2('mobility-traces/1.4_highway_changeRate')
-print("场景四批处理任务完成。")
+runScenarios('mobility-traces/1.1_highway_changeNum')
+print("场景一批处理任务完成。")
 
 
 # logfile_folder = 'logs/1.2_highway_changeNum/v90/n40_v90'

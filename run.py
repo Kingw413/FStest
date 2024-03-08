@@ -58,11 +58,11 @@ def runScenarios(trace_folder_path: str):
     logs_folder_path = os.path.join(*parts)
     parts[0] = 'logs_delay'
     delaylogs_folder_path = os.path.join(*parts)
-    parts[0] = 'results'
+    parts[0] = 'logs_results'
     results_folder_path = os.path.join(*parts)
 
     # 定义正则表达式模式
-    filename_pattern1 = re.compile(r'n(\d+)_v(\d+)\.tcl')
+    filename_pattern1 = re.compile(r'n(\d+)\.tcl')
     filename_pattern2 = re.compile(r'n(\d+)_var(\d+)\.tcl')
 
     # 遍历文件夹下所有文件
@@ -72,7 +72,7 @@ def runScenarios(trace_folder_path: str):
         match2 = filename_pattern2.match(filename)
         if match1:
             n_value = match1.group(1)
-            v_value = match1.group(2)
+            # v_value = match1.group(2)
             logfile_folder = os.path.join(logs_folder_path, f'n{n_value}_v{v_value}')
             delayfile_folder = os.path.join(delaylogs_folder_path, f'n{n_value}_v{v_value}')
             results_folder = os.path.join(results_folder_path, f'n{n_value}_v{v_value}')
@@ -113,7 +113,7 @@ def runScenarios2(trace_folder_path: str):
     logs_folder_path = os.path.join(*parts)
     parts[0] = 'logs_delay'
     delaylogs_folder_path = os.path.join(*parts)
-    parts[0] = 'results'
+    parts[0] = 'logs_results'
     results_folder_path = os.path.join(*parts)
 
     for filename in os.listdir(trace_folder_path):
@@ -148,9 +148,9 @@ def runScenarios2(trace_folder_path: str):
 
 # runScenarios2('mobility-traces/1.4_highway_changeRate')
 # print("场景四批处理任务完成。")
-runScenarios('mobility-traces/1.1_highway_changeSpeed/n100')
-print("场景一批处理任务完成。")
-runScenarios('mobility-traces/1.2_highway_changeNum/v90')
+# runScenarios('mobility-traces/1.2_highway_changeSpeed/n100')
+# print("场景一批处理任务完成。")
+runScenarios('mobility-traces/1.1_highway_changeNum')
 print("场景二批处理任务完成。")
 # runScenarios('mobility-traces/1.3_highway_changeSpeedVar/n100')
 # print("场景三批处理任务完成。")
