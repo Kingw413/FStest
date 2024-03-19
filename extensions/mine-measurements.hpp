@@ -27,6 +27,7 @@
 #define NFD_DAEMON_FW_MINE_MEASUREMENTS_HPP
 
 #include "fw/strategy-info.hpp"
+#include "fw/forwarder-counters.hpp"
 #include "table/measurements-accessor.hpp"
 
 #include <ndn-cxx/util/rtt-estimator.hpp>
@@ -64,8 +65,26 @@ public:
     return m_rttEstimator.getSmoothedRtt();
   }
 
+  void
+  recordISR(double newISR)
+  {
+    m_lastISR = newISR;
+    if (m_isr == 0.0)
+    {
+      m_isr = newISR;
+    }
+    else
+    {
+      m_isr = 0.5 * newISR + (1 - 0.5) * m_isr;
+    }
+  }
+
   double
-  getISR() const
+  getLastISR() const
+  {
+    return m_lastISR;
+  }
+  double getSmoothedISR() const
   {
     return m_isr;
   }
@@ -73,11 +92,13 @@ public:
 public:
   static const time::nanoseconds RTT_NO_MEASUREMENT;
   static const time::nanoseconds RTT_TIMEOUT;
+  ForwarderCounters m_counters;
 
 private:
   ndn::util::RttEstimator m_rttEstimator;
   time::nanoseconds m_lastRtt = RTT_NO_MEASUREMENT;
-  double m_isr;
+  double m_isr = 0.0;
+  double m_lastISR = 0.0;
   Name m_lastInterestName;
 
   // Timeout associated with measurement

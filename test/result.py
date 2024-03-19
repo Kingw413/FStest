@@ -7,8 +7,10 @@ import matplotlib.pyplot as plt
 
 STRATEGY_VALUES =['vndn', 'dasb', 'lisic', 'lsif', 'difs', 'prfs','mupf']
 # 设置结果文件夹路径
-results_folder = 'test/logs_results/1.1_highway_changeNum'
+results_folder = 'test/logs_results/1_Num'
 indicators =  [num for num in range(20, 101, 10)]
+indicators_add = [x for x in range(120, 201, 20)]
+indicators = indicators +  indicators_add
 index_label = 'Number of Nodes'
 
 #排序文件夹，保证计算出的数据与index对应
@@ -51,6 +53,7 @@ for (indicator, indicator_data), ax in zip(final_results, axes.flatten()):
         ax.plot(indicator_data.index, indicator_data[col], label=col)
 
     ax.set_title(f"{indicator} vs {index_label}")
+    ax.set_xticks(indicators)
     ax.set_xlabel(index_label)
     ax.set_ylabel(indicator)
     ax.legend()

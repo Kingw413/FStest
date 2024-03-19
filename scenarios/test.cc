@@ -77,9 +77,9 @@ namespace ns3
     
     Ptr<ListPositionAllocator> pos = CreateObject<ListPositionAllocator>();
     pos->Add(Vector(0.0, 0.0, 0.0));
-    pos->Add(Vector(2.4, 0.0, 0.0));
-    pos->Add(Vector(480.0, 0.0, 0.0));
-    pos->Add(Vector(600.0, 0.0, 0.0));
+    pos->Add(Vector(80, 0.0, 0.0));
+    pos->Add(Vector(160.0, 0.0, 0.0));
+    pos->Add(Vector(240.0, 0.0, 0.0));
     MobilityHelper mobilityHelper;
     mobilityHelper.SetPositionAllocator(pos);
     mobilityHelper.SetMobilityModel("ns3::ConstantPositionMobilityModel");
@@ -94,22 +94,30 @@ namespace ns3
 		ndn::StackHelper ndnHelper;
 		ndnHelper.AddFaceCreateCallback(WifiNetDevice::GetTypeId(),
 										MakeCallback(&WifiApStaDeviceCallback));
-		ndnHelper.setCsSize(0);
-		ndnHelper.InstallAll();
+		for (int i = 0; i<nodes.GetN(); i++) {
+			if (i==0) {
+				ndnHelper.setCsSize(1);
+				ndnHelper.Install(nodes[i]);
+			}
+			else {
+				ndnHelper.setCsSize(20);
+				ndnHelper.Install(nodes[i]);
+			}
+		}
 		std::cout << "Install stack\n";
 
-		ndn::StrategyChoiceHelper::InstallAll("/", "/localhost/nfd/strategy/MINE2/%FD%01");
+		ndn::StrategyChoiceHelper::InstallAll("/", "/localhost/nfd/strategy/MINE/%FD%01");
 
 		// Installing Consumer
-		ndn::AppHelper consumerHelper("ns3::ndn::ConsumerCbr");
-		// ndn::AppHelper consumerHelper("ns3::ndn::ConsumerTest");
-		consumerHelper.SetAttribute("Frequency", DoubleValue(1));
-		consumerHelper.SetAttribute("Randomize", StringValue("none"));
-		// ndn::AppHelper consumerHelper("ns3::ndn::ConsumerZipfMandelbrot");
-		// consumerHelper.SetAttribute("Frequency", StringValue("10"));
-		// consumerHelper.SetAttribute("NumberOfContents", StringValue("100"));
-		// consumerHelper.SetAttribute("q", StringValue("0"));
-		// consumerHelper.SetAttribute("s", StringValue("0.7"));
+		// ndn::AppHelper consumerHelper("ns3::ndn::ConsumerCbr");
+		// // ndn::AppHelper consumerHelper("ns3::ndn::ConsumerTest");
+		// consumerHelper.SetAttribute("Frequency", DoubleValue(1));
+		// consumerHelper.SetAttribute("Randomize", StringValue("none"));
+		ndn::AppHelper consumerHelper("ns3::ndn::ConsumerZipfMandelbrot");
+		consumerHelper.SetAttribute("Frequency", StringValue("10"));
+		consumerHelper.SetAttribute("NumberOfContents", StringValue("5"));
+		consumerHelper.SetAttribute("q", StringValue("0"));
+		consumerHelper.SetAttribute("s", StringValue("0.7"));
 		consumerHelper.SetPrefix("/ustc");
 		NodeContainer consumerContainer;
 		consumerContainer.Add(nodes[0]);
@@ -130,7 +138,7 @@ namespace ns3
 				  << " nodes and producers in " << producercontainer.GetN()
 				  << " nodes" << std::endl;
 
-		ndn::AppDelayTracer::Install(nodes[0], "test/test_delay.log");
+		ndn::AppDelayTracer::Install(nodes[0], "test_delay.log");
 		// ndn::CsTracer::InstallAll("results/cs_prfs.log", MilliSeconds(1000));
 
 		Simulator::Stop(Seconds(10));

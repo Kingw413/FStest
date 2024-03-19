@@ -3,7 +3,6 @@
 
 #include "ns3/ndnSIM/model/ndn-l3-protocol.hpp"
 #include "ns3/ndnSIM/NFD/daemon/fw/strategy.hpp"
-// #include "ns3/ndnSIM/NFD/daemon/fw/process-nack-traits.hpp"
 #include "ns3/ndnSIM/NFD/daemon/fw/retx-suppression-exponential.hpp"
 #include "mine-measurements.hpp"
 #include "ns3/node-container.h"
@@ -15,15 +14,6 @@ namespace mine {
 
 class MINE : public Strategy
 {
-struct  weightTableEntry {
-	ns3::Ptr<ns3::Node> node;
-    double Dis;
-    double Dir;
-    double TD;
-    double Score;
-	weightTableEntry(ns3::Ptr<ns3::Node> n, double distance, double direction, double density, double score) : node(n), Dis(distance), Dir(direction), TD(density), Score(score) {}
-};
-
 struct  neighborTableEntry {
 	ns3::Ptr<ns3::Node> node;
     ns3::Vector3D position;
@@ -36,9 +26,10 @@ struct  neighborTableEntry {
 struct FaceStats
 {
   Face* face;
-  double let;
-  double lap;
+  double distance;
+  double sisr;
   double srtt;
+  FaceStats(Face* f, double d, double isr, double rtt) : face(f), distance(d), sisr(isr), srtt(rtt) {}
 };
 
 public:
@@ -61,85 +52,48 @@ public:
 	afterReceiveData(const shared_ptr<pit::Entry> &pitEntry,
 					 const FaceEndpoint &ingress, const Data &data) override;
 
-    /*内容发现，当FIB表中没有匹配项时触发*/
-    void
-    contentDiscovery(ns3::Ptr<ns3::Node> localNode, const FaceEndpoint& ingress, const fib::NextHopList& nexthops, const Interest& interest, const shared_ptr<pit::Entry> &pitEntry);
+    bool
+    isProducer(ns3::Ptr<ns3::Node> node);
 
-    /*收到Discovery对应的Data包后触发*/
-    void
-    afterReceiveDiscoveryData(const shared_ptr<pit::Entry>& pitEntry,
-                        const FaceEndpoint& ingress, const Data& data);
+    /*To get the content Souces*/
+    std::set<ns3::Ptr<ns3::Node>>
+    getContentSources(const Interest &interest);
 
-    /*添加CPT，在内容发现完成后触发*/
-    void
-    createCPT(ns3::Ptr<ns3::Node> providerNode);
-
-    /*建立路径，在内容发现完成后触发*/
-    void
-    unicastPathBuilding(const ndn::Name prefix, ns3::Ptr<ns3::Node> srcNode, ns3::Ptr<ns3::Node> providerNode);
+    /*To get candidate relays for each content source*/
+    std::set<Face*>
+    getCandidateForwarders(const fib::NextHopList &nexthops, ns3::Ptr<ns3::Node> curNode, std::set<ns3::Ptr<ns3::Node>> srcNodes);
 
     /*在FIB中选择下一跳*/
     Face*
-    selectFIB(ns3::Ptr<ns3::Node> localNode, const Interest& interest, const fib::NextHopList& nexthops, const fib::Entry& fibEntry);
-
-    /*更新当前节点的FIB，周期性触发*/
-    void
-    updateFIB(const ndn::Name prefix, ns3::Ptr<ns3::Node> srcNode, ns3::Ptr<ns3::Node> providerNode, const fib::NextHopList& nexthops);
-
-    /*判断是否在相交区域*/
-    bool
-    isIntermediateNode(ns3::Ptr<ns3::Node> node, ns3::Ptr<ns3::Node> srcNode, ns3::Ptr<ns3::Node> desNode);
+    selectFIB(ns3::Ptr<ns3::Node> localNode, const Interest &interest, std::set<Face *> candidateForwarders, const fib::Entry &fibEntry);
 
     /*计算节点间距离*/				
     double
-    calculateDistance(ns3::Ptr<ns3::Node> localNode, ns3::Ptr<ns3::Node> srcNode, ns3::Ptr<ns3::Node> desNode);
-
-    /*计算密度*/
-    double
-    calculateDensity(ns3::Ptr<ns3::Node> node);
-
-    /*计算方向相似度*/
-    double
-    calculateDirection(ns3::Ptr<ns3::Node> node, ns3::Ptr<ns3::Node> srcNode, ns3::Ptr<ns3::Node> desNode);
+    calculateDistance(ns3::Ptr<ns3::Node> node1, ns3::Ptr<ns3::Node> node2);
 
 	/*计算LET*/
 	double
 	calculateLET(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> revNode);
 
-    /*计算链路可用概率*/
-    double
-    calculateLAP(double t, double delta_t);
-
-
-    /*归一化DL*/
+    /*归一化*/
     std::vector<FaceStats>
-    customNormalize(std::vector<FaceStats>& decisionList);
+    customNormalize(std::vector<FaceStats>& faceList);
 
     /*计算正理想解*/
-    FaceStats&
-    calculateIdealSolution(std::vector<FaceStats>& decisionList);
+    FaceStats
+    calculateIdealSolution(std::vector<FaceStats>& faceList);
 
     /*计算负理想解*/
-    FaceStats&
-    calculateNegativeIdealSolution(std::vector<FaceStats>& decisionList);
+    FaceStats
+    calculateNegativeIdealSolution(std::vector<FaceStats> &faceList);
 
     /*计算最终的权重*/
     double
     calculateCloseness(const FaceStats& entry, const FaceStats& idealSolution, const FaceStats& negativeIdealSolution);
 
     /*得到最优解*/
-    FaceStats&
-    getOptimalDecision(std::vector<FaceStats>& decisionList, const FaceStats& idealSolution, const FaceStats& negativeIdealSolution);
-
-
-    /*判断是否在通信范围*/
-    bool
-    isInRegion(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> recvNode);
-
-    bool
-    isNextHopEligible(const Face& inFace,
-                  const fib::NextHop& nexthop,
-                  ns3::Ptr<ns3::Node> node);
+    FaceStats &
+    getOptimalDecision(std::vector<FaceStats> &faceList);
 
     /* 得到当前node
      * 通过判断this指针与哪个node的strategy指向相同对象，来判别当前的node
@@ -150,23 +104,14 @@ public:
 
 private:
 	static const double Rth;
-    static const double Mu;
-    static const double Phi;
-    static const double Omega;
-    static const double Alpha;
-    static const double Beta;
 
 	ns3::NodeContainer m_nodes;
-	// std::vector<MINE::weightTableEntry> m_WT;
 	std::vector<MINE::neighborTableEntry> m_NT;
-    std::vector<ns3::Ptr<ns3::Node>> m_CPT;
-
     MineMeasurements m_measurements;
 
 	PUBLIC_WITH_TESTS_ELSE_PRIVATE : static const time::milliseconds RETX_SUPPRESSION_INITIAL;
 	static const time::milliseconds RETX_SUPPRESSION_MAX;
 	RetxSuppressionExponential m_retxSuppression;
-
 };
 
 } // namespace mine

@@ -2,7 +2,7 @@ import os
 import re
 import random
 import pandas as pd
-STRATEGY_VALUES =['lisic', 'dasb', 'difs','prfs']
+STRATEGY_VALUES =['vndn', 'lsif', 'mupf', 'lisic', 'dasb', 'difs', 'prfs']
 RESULTS_VALUES = ['FIP', 'FDP', 'ISD' , 'ISR']
 TIME=100
 def calMetric(logfile: str, delayfile: str, num=100, rate=1.0): 
@@ -63,10 +63,12 @@ def runScenarios(trace_folder_path: str):
         # 使用正则表达式匹配文件名中的 'n' 和 'v' 值
         match = filename_pattern.match(filename)
         num = int(match.group(1))
+        if (num<101):
+            continue
         trace = os.path.join(trace_folder_path, filename)
         logfile_folder =  'test/logs/' + parts[1] +  "/n"  + str(num) 
         delayfile_folder =  'test/logs_delay/' + parts[1] +  "/n"  + str(num) 
-        results_folder =  'test/logs_results/' + parts[1] +  "/n"  + str(num) 
+        # results_folder =  'test/logs_results/' + parts[1] +  "/n"  + str(num) 
         results_file =  'test/logs_results/' + parts[1] +  "/n"  + str(num) +".csv"
         os.makedirs(logfile_folder, exist_ok=True)
         os.makedirs(delayfile_folder, exist_ok=True)
@@ -77,9 +79,10 @@ def runScenarios(trace_folder_path: str):
         for strategy in STRATEGY_VALUES:
             logfile = os.path.join(logfile_folder, f'{strategy}.log')
             delayfile = os.path.join(delayfile_folder, f'{strategy}.log')
+            print(f"num={num}_strategy={strategy} 仿真开始")
             command = f'NS_LOG=ndn-cxx.nfd.{strategy.upper()}:ndn.Producer ./waf --run "{strategy} --num={num+1} --id1={consumer} --id2={producer}  --rate=1 --trace={trace}  --delay_log={delayfile}"> {logfile} 2>&1'
             os.system(command)
-            print(logfile,delayfile)
+            # print(logfile,delayfile)
             
             metric = calMetric(logfile, delayfile, num, 1)
             metrics_strategy = pd.DataFrame({strategy : metric}, index=RESULTS_VALUES)
@@ -87,7 +90,7 @@ def runScenarios(trace_folder_path: str):
             print(f"num={num}_strategy={strategy} 仿真结束")
         print(f"num={num}仿真结束")
 
-runScenarios('mobility-traces/1.1_highway_changeNum')
+runScenarios('mobility-traces/1_Num')
 print("场景一批处理任务完成。")
 
 

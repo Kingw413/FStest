@@ -162,10 +162,10 @@ PRFS::setNextHop(const fib::NextHopList& nexthops,
                 FIRD = rd_node;
             }
         }
-        // if(FIRD) {
-        //     NFD_LOG_DEBUG("FIRD="<<FIRD->GetId());
-        // }
-        // else{NFD_LOG_DEBUG("No Next FIRD");}
+        if(FIRD) {
+            NFD_LOG_DEBUG("FIRD="<<FIRD->GetId()<<", Dis="<<distance);
+        }
+        else{NFD_LOG_DEBUG("No Next FIRD");}
     }
     if (isConsumer || !isRD) {
         double distance = 0;
@@ -176,10 +176,10 @@ PRFS::setNextHop(const fib::NextHopList& nexthops,
                 FIRRD = rrd_node;
             }
         }
-        // if(FIRRD) {
-        //     NFD_LOG_DEBUG("FIRRD="<<FIRRD->GetId());
-        // }
-        // else{NFD_LOG_DEBUG("No Next FIRRD");}
+        if(FIRRD) {
+            NFD_LOG_DEBUG("FIRRD=" << FIRRD->GetId() << ", Dis=" << distance);
+        }
+        else{NFD_LOG_DEBUG("No Next FIRRD");}
     }
 
     PRFS::inteAddField inteEntry(interest.getName(), interest.getNonce(), FIRD, FIRRD);
