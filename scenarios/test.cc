@@ -139,7 +139,7 @@ namespace ns3
 				  << " nodes" << std::endl;
 
 		ndn::AppDelayTracer::Install(nodes[0], "test_delay.log");
-		// ndn::CsTracer::InstallAll("results/cs_prfs.log", MilliSeconds(1000));
+		ndn::CsTracer::InstallAll("test_cs.log", MilliSeconds(1000));
 
 		Simulator::Stop(Seconds(10));
 		Simulator::Run();

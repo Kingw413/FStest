@@ -42,12 +42,13 @@ NS_LOG_COMPONENT_DEFINE("WifiSimpleOcb");
 
 namespace ns3
 {
-	int main(int num, int id1, int id2, double rate, string trace, string delay_log)
+	int main(int num, int id1, int id2, double rate, double time, string trace, string delay_log)
 	{
 		uint32_t N = num;
 		uint32_t ConsumerId = id1;
 		uint32_t ProducerId = id2;
-		uint32_t Rate = rate;
+		double Rate = rate;
+		double Time = time;
 		string MobilityTrace = trace;
 		string DelayTrace = delay_log;
 
@@ -87,22 +88,21 @@ namespace ns3
 		ndnHelper.AddFaceCreateCallback(WifiNetDevice::GetTypeId(),
 										MakeCallback(&WifiApStaDeviceBroadcastCallback));
 
-		ndnHelper.setCsSize(100);
+		ndnHelper.setCsSize(20);
 		ndnHelper.InstallAll();
 		std::cout << "Install stack\n";
 
 		ndn::StrategyChoiceHelper::InstallAll("/", "/localhost/nfd/strategy/LSIF/%FD%01");
 
 		// Installing Consumer
-		ndn::AppHelper consumerHelper("ns3::ndn::ConsumerCbr");
-		// ndn::AppHelper consumerHelper("ns3::ndn::ConsumerTest");
+		// ndn::AppHelper consumerHelper("ns3::ndn::ConsumerCbr");
+		// consumerHelper.SetAttribute("Frequency", DoubleValue(Rate));
+		// consumerHelper.SetAttribute("Randomize", StringValue("none"));
+		ndn::AppHelper consumerHelper("ns3::ndn::ConsumerZipfMandelbrot");
 		consumerHelper.SetAttribute("Frequency", DoubleValue(Rate));
-		consumerHelper.SetAttribute("Randomize", StringValue("none"));
-		// ndn::AppHelper consumerHelper("ns3::ndn::ConsumerZipfMandelbrot");
-		// consumerHelper.SetAttribute("Frequency", StringValue("10"));
-		// consumerHelper.SetAttribute("NumberOfContents", StringValue("100"));
-		// consumerHelper.SetAttribute("q", StringValue("0"));
-		// consumerHelper.SetAttribute("s", StringValue("0.7"));
+		consumerHelper.SetAttribute("NumberOfContents", StringValue("50"));
+		consumerHelper.SetAttribute("q", StringValue("0"));
+		consumerHelper.SetAttribute("s", StringValue("0.7"));
 		consumerHelper.SetPrefix("/ustc");
 		NodeContainer consumerContainer;
 		consumerContainer.Add(nodes[ConsumerId]);
@@ -122,7 +122,7 @@ namespace ns3
 		ndn::AppDelayTracer::Install(nodes[ConsumerId], DelayTrace);
 		// ndn::CsTracer::InstallAll("results/cs_prfs.log", MilliSeconds(1000));
 
-		Simulator::Stop(Seconds(100));
+		Simulator::Stop(Seconds(Time));
 		Simulator::Run();
 		Simulator::Destroy();
 		std::cout << "end";
@@ -132,19 +132,22 @@ namespace ns3
 
 int main(int argc, char *argv[]) { 
     // 创建命令行对象
-    ns3::CommandLine cmd;
+	ns3::CommandLine cmd;
 	int num, id1, id2;
 	double rate;
+	double time;
 	string trace, log, delay_log;
-    // 添加自定义参数
-    cmd.AddValue("num", "Description for number of nodes parameter", num);
-    cmd.AddValue("id1", "Description for consumer node id parameter", id1);
-    cmd.AddValue("id2", "Description for producer node id  parameter", id2);
-    cmd.AddValue("rate", "Description for request rate  parameter", rate);
-    cmd.AddValue("trace", "Description for mobility trace  parameter", trace);
-    cmd.AddValue("delay_log", "Description for delay log parameter", delay_log);
+	// 添加自定义参数
+	cmd.AddValue("num", "Description for number of nodes parameter", num);
+	cmd.AddValue("id1", "Description for consumer node id parameter", id1);
+	cmd.AddValue("id2", "Description for producer node id  parameter", id2);
+	cmd.AddValue("rate", "Description for request rate  parameter", rate);
+	cmd.AddValue("time", "Description for request rate  parameter", time);
+	cmd.AddValue("trace", "Description for mobility trace  parameter", trace);
+	cmd.AddValue("delay_log", "Description for delay log parameter", delay_log);
 
-    // 解析命令行参数
-    cmd.Parse(argc, argv);
-	
-	return ns3::main(num, id1, id2, rate, trace, delay_log); }
+	// 解析命令行参数
+	cmd.Parse(argc, argv);
+
+	return ns3::main(num, id1, id2, rate, time, trace, delay_log);
+}
