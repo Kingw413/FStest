@@ -87,6 +87,17 @@ void DIFS::afterReceiveInterest(const FaceEndpoint &ingress, const Interest &int
 }
 
 void
+DIFS::afterContentStoreHit(const shared_ptr<pit::Entry> &pitEntry,
+                                const FaceEndpoint &ingress, const Data &data)
+{
+    NFD_LOG_DEBUG("afterContentStoreHit pitEntry=" << pitEntry->getName()
+                    << " in=" << ingress << " data=" << data.getName());
+
+    this->sendData(pitEntry, data, ingress);
+    NFD_LOG_DEBUG("do Send Data=" << data.getName() << ", from=" << ingress);
+}
+
+void
 DIFS::afterReceiveData(const shared_ptr<pit::Entry> &pitEntry,
 							const FaceEndpoint &ingress, const Data &data)
 {

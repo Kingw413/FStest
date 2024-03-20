@@ -2,7 +2,7 @@ import os
 import re
 import random
 import pandas as pd
-STRATEGY_VALUES =['vndn', 'lsif', 'mupf', 'lisic', 'dasb', 'difs', 'prfs', 'mime']
+STRATEGY_VALUES =['vndn', 'lsif', 'mupf', 'lisic', 'dasb', 'difs', 'prfs', 'mine']
 RESULTS_VALUES = ['FIP', 'FDP', 'ISD' , 'ISR', 'HIR']
 
 def calMetric(logfile: str, delayfile: str, num, rate, time): 
@@ -66,7 +66,6 @@ def runScenarios(trace_folder_path: str):
         results_file =  'test/logs_results/' + parts[1] +  "/n"  + str(num) +".csv"
         os.makedirs(logfile_folder, exist_ok=True)
         os.makedirs(delayfile_folder, exist_ok=True)
-        # os.makedirs(results_folder, exist_ok=True)
 
         consumer = 0
         producer = num
@@ -77,14 +76,17 @@ def runScenarios(trace_folder_path: str):
             delayfile = os.path.join(delayfile_folder, f'{strategy}.log')
             print(f"num={num}_strategy={strategy} 仿真开始")
             command = f'NS_LOG=ndn-cxx.nfd.{strategy.upper()}:ndn.Producer ./waf --run "{strategy} --num={num+1} --id1={consumer} --id2={producer}  --rate={rate} --time={time} --trace={trace}  --delay_log={delayfile}"> {logfile} 2>&1'
-            os.system(command)
-            # print(logfile,delayfile)
-            
-            metric = calMetric(logfile, delayfile, num, rate, time)
-            metrics_strategy = pd.DataFrame({strategy : metric}, index=RESULTS_VALUES)
-            writeMetricToFile(results_file, metrics_strategy, 1)
+            if (os.path.exists(logfile) and os.path.exists(delayfile)):
+                logs = open(logfile, 'r').readlines()
+                run_times = 1
+                while (logs[-1] != "end" and run_times<4):
+                    print(f"num={num}_strategy={strategy} 仿真失败，重试第{run_times}次")
+                    os.system(command)
+                    logs = open(logfile, 'r').readlines()
+                    run_times += 1  
+            else:
+                os.system(command)
             print(f"num={num}_strategy={strategy} 仿真结束")
         print(f"num={num}仿真结束")
-
 runScenarios('mobility-traces/1_Num')
 print("场景一批处理任务完成。")

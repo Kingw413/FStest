@@ -37,6 +37,10 @@ public:
 	afterReceiveLoopedInterest(const FaceEndpoint& ingress, const Interest& interest,
                     pit::Entry& pitEntry) override;
 
+	void
+	afterContentStoreHit(const shared_ptr<pit::Entry> &pitEntry,
+						 const FaceEndpoint &ingress, const Data &data) override;
+
 	/*执行发送Interest*/
 	void
     doSendInterest(const shared_ptr<pit::Entry> &pitEntry,

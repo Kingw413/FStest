@@ -118,6 +118,16 @@ DASB::doSendInterest(const shared_ptr<pit::Entry> &pitEntry,
 	this->deleteEntry(it,m_waitTableInt);
 }
 
+void DASB::afterContentStoreHit(const shared_ptr<pit::Entry> &pitEntry,
+								const FaceEndpoint &ingress, const Data &data)
+{
+	  NFD_LOG_DEBUG("afterContentStoreHit pitEntry=" << pitEntry->getName()
+	                << " in=" << ingress << " data=" << data.getName());
+
+	this->sendData(pitEntry, data, ingress);
+	NFD_LOG_DEBUG("do Send Data=" << data.getName() << ", from=" << ingress);
+}
+
 void DASB::afterReceiveData(const shared_ptr<pit::Entry> &pitEntry,
 							const FaceEndpoint &ingress, const Data &data) {
 	// NFD_LOG_DEBUG("afterReceiveData pitEntry=" << pitEntry->getName()

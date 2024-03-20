@@ -39,7 +39,12 @@ public:
 	void
 	afterReceiveInterest(const FaceEndpoint &ingress, const Interest &interest,
 					const shared_ptr<pit::Entry> &pitEntry) override;
-	void
+
+    void
+    afterContentStoreHit(const shared_ptr<pit::Entry> &pitEntry,
+                         const FaceEndpoint &ingress, const Data &data) override;
+                         
+    void
 	afterReceiveData(const shared_ptr<pit::Entry> &pitEntry,
 					const FaceEndpoint &ingress, const Data &data) override;
 

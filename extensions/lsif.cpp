@@ -21,7 +21,7 @@ LSIF::LSIF(Forwarder &forwarder, const Name &name)
 	  m_retxSuppression(RETX_SUPPRESSION_INITIAL, RetxSuppressionExponential::DEFAULT_MULTIPLIER,
 						RETX_SUPPRESSION_MAX),
 	  m_forwarder(forwarder),
-	  m_nodes(ns3::NodeContainer::GetGlobal()), m_Rth(200.0), m_LET_alpha(5.0)
+	  m_nodes(ns3::NodeContainer::GetGlobal()), m_Rth(200.0), m_LET_alpha(10.0)
 {
 	ParsedInstanceName parsed = parseInstanceName(name);
 	if (!parsed.parameters.empty())
@@ -70,10 +70,22 @@ void LSIF::afterReceiveInterest(const FaceEndpoint &ingress, const Interest &int
     double LET = caculateLET(sendNode, receiveNode);
     if (LET < m_LET_alpha) {
         NS_LOG_DEBUG("LET < alpha, Cancel to forward");
+		this->setExpiryTimer(pitEntry, 0_ms);
         return;
     }
     NFD_LOG_INFO("do Send Interest" << interest << " from=" << ingress << " to=" << egress);
     this->sendInterest(pitEntry, egress, interest);
+}
+
+void
+LSIF::afterContentStoreHit(const shared_ptr<pit::Entry> &pitEntry,
+								const FaceEndpoint &ingress, const Data &data)
+{
+	NFD_LOG_DEBUG("afterContentStoreHit pitEntry=" << pitEntry->getName()
+												   << " in=" << ingress << " data=" << data.getName());
+
+	this->sendData(pitEntry, data, ingress);
+	NFD_LOG_DEBUG("do Send Data=" << data.getName() << ", from=" << ingress);
 }
 
 void
