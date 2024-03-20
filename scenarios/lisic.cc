@@ -42,11 +42,12 @@ NS_LOG_COMPONENT_DEFINE("WifiSimpleOcb");
 
 namespace ns3
 {
-	int main(int num, int id1, int id2, double rate, double time, string trace, string delay_log)
+	int main(int num, vector<int> consumers, vector<int> producers, double popularity, double rate, double time, string trace, string delay_log)
 	{
 		uint32_t N = num;
-		uint32_t ConsumerId = id1;
-		uint32_t ProducerId = id2;
+		vector<int> ConsumerId = consumers;
+		vector<int> ProducerId = producers;
+		double Popularity = popularity;
 		double Rate = rate;
 		double Time = time;
 		string MobilityTrace = trace;
@@ -54,7 +55,7 @@ namespace ns3
 
 		NodeContainer nodes;
 		nodes.Create(N);
-		
+
 		std::string phyMode("OfdmRate6Mbps");
 		YansWifiPhyHelper wifiPhy;
 		YansWifiChannelHelper channelHelper = YansWifiChannelHelper::Default();
@@ -76,7 +77,7 @@ namespace ns3
 										   "ControlMode", StringValue(phyMode));
 
 		NetDeviceContainer devices = wifi80211p.Install(wifiPhy, wifi80211pMac, nodes);
-
+		std::cout << MobilityTrace << endl;
 		Ns2MobilityHelper ns2Mobiity = Ns2MobilityHelper(MobilityTrace);
 		ns2Mobiity.Install();
 
@@ -101,10 +102,13 @@ namespace ns3
 		consumerHelper.SetAttribute("Frequency", DoubleValue(Rate));
 		consumerHelper.SetAttribute("NumberOfContents", StringValue("50"));
 		consumerHelper.SetAttribute("q", StringValue("0"));
-		consumerHelper.SetAttribute("s", StringValue("0.7"));
+		consumerHelper.SetAttribute("s", DoubleValue(Popularity));
 		consumerHelper.SetPrefix("/ustc");
 		NodeContainer consumerContainer;
-		consumerContainer.Add(nodes[ConsumerId]);
+		for (auto &id : ConsumerId)
+		{
+			consumerContainer.Add(nodes[id]);
+		}
 		consumerHelper.Install(consumerContainer);
 
 		// Installing Producer
@@ -112,13 +116,16 @@ namespace ns3
 		producer.SetPrefix("/ustc");
 		producer.SetAttribute("PayloadSize", UintegerValue(1024));
 		NodeContainer producerContainer;
-		producerContainer.Add(nodes[ProducerId]);	
+		for (auto &id : ProducerId)
+		{
+			producerContainer.Add(nodes[id]);
+		}
 		producer.Install(producerContainer);
-		std::cout << "Install "<<consumerContainer.GetN()<<" consumers in node=" << ConsumerId
-				  << " and "<<producerContainer.GetN()<<" producers in node=" << ProducerId
+		std::cout << "Install " << consumerContainer.GetN() << " consumers"
+				  << " and " << producerContainer.GetN() << " producers"
 				  << std::endl;
 
-		ndn::AppDelayTracer::Install(nodes[ConsumerId], DelayTrace);
+		ndn::AppDelayTracer::Install(consumerContainer, DelayTrace);
 		// ndn::CsTracer::InstallAll("results/cs_prfs.log", MilliSeconds(1000));
 
 		Simulator::Stop(Seconds(Time));
@@ -129,17 +136,35 @@ namespace ns3
 	}
 }
 
-int main(int argc, char *argv[]) { 
-    // 创建命令行对象
+// 解析字符串形式的列表参数，返回vector<int>
+std::vector<int> parseList(const std::string &str)
+{
+	std::vector<int> result;
+	std::istringstream ss(str.substr(1, str.size() - 2)); // 去掉首尾的方括号
+	std::string token;
+	while (std::getline(ss, token, ','))
+	{
+		result.push_back(std::stoi(token));
+	}
+	return result;
+}
+
+int main(int argc, char *argv[])
+{
+	// 创建命令行对象
 	ns3::CommandLine cmd;
-	int num, id1, id2;
+	int num;
+	string consumers_list;
+	string producers_list;
 	double rate;
 	double time;
+	double popularity;
 	string trace, log, delay_log;
 	// 添加自定义参数
 	cmd.AddValue("num", "Description for number of nodes parameter", num);
-	cmd.AddValue("id1", "Description for consumer node id parameter", id1);
-	cmd.AddValue("id2", "Description for producer node id  parameter", id2);
+	cmd.AddValue("consumers", "List of consumer nodes", consumers_list);
+	cmd.AddValue("producers", "List of producer nodes", producers_list);
+	cmd.AddValue("popularity", "Popularity of Zipf", popularity);
 	cmd.AddValue("rate", "Description for request rate  parameter", rate);
 	cmd.AddValue("time", "Description for request rate  parameter", time);
 	cmd.AddValue("trace", "Description for mobility trace  parameter", trace);
@@ -148,5 +173,8 @@ int main(int argc, char *argv[]) {
 	// 解析命令行参数
 	cmd.Parse(argc, argv);
 
-	return ns3::main(num, id1, id2, rate, time, trace, delay_log);
+	std::vector<int> consumers = parseList(consumers_list);
+	std::vector<int> producers = parseList(producers_list);
+
+	return ns3::main(num, consumers, producers, popularity, rate, time, trace, delay_log);
 }
