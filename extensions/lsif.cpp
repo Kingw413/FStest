@@ -69,7 +69,7 @@ void LSIF::afterReceiveInterest(const FaceEndpoint &ingress, const Interest &int
     ns3::Ptr<ns3::Node> sendNode = m_nodes[sendNodeId];
     double LET = caculateLET(sendNode, receiveNode);
     if (LET < m_LET_alpha) {
-        NS_LOG_DEBUG("LET < alpha, Cancel to forward");
+        // NS_LOG_DEBUG("LET < alpha, Cancel to forward");
 		this->setExpiryTimer(pitEntry, 0_ms);
         return;
     }

@@ -58,7 +58,7 @@ void DASB::afterReceiveInterest(const FaceEndpoint &ingress, const Interest &int
 					  { return isNextHopEligible(ingress.face, interest, nexthop, pitEntry); });
 
 	if (it == nexthops.end()) {
-		NFD_LOG_DEBUG(interest << " from=" << ingress << " noNextHop");
+		// NFD_LOG_DEBUG(interest << " from=" << ingress << " noNextHop");
 		return;
 	}
 
@@ -72,7 +72,7 @@ void DASB::afterReceiveInterest(const FaceEndpoint &ingress, const Interest &int
 		auto it = findEntry(interest.getName(), interest.getNonce(), m_waitTableInt);
 		if (it != m_waitTableInt.end()) {
 			if (shouldSuppress(ingress, it, m_waitTableInt)) {
-				NFD_LOG_DEBUG("Should Suppress!");
+				// NFD_LOG_DEBUG("Should Suppress!");
 				this->cancelSend(it->eventId);
 				this->deleteEntry(it, m_waitTableInt);
 				// 取消发送后删除对应的PIT表项
@@ -88,7 +88,7 @@ void DASB::afterReceiveInterest(const FaceEndpoint &ingress, const Interest &int
 	    int sendNodeId = (ingress.face.getId() - 257) + (receiveNode->GetId()+257 <= ingress.face.getId());
 	    ns3::Ptr<ns3::Node> sendNode = m_nodes[sendNodeId];
 		double deferTime = calculateDeferTime(sendNode, receiveNode);
-		NS_LOG_DEBUG("Wait Time="<<deferTime<<", to send " << interest << " from=" << ingress << " to=" << egress);
+		// NS_LOG_DEBUG("Wait Time="<<deferTime<<", to send " << interest << " from=" << ingress << " to=" << egress);
 		auto eventId = ns3::Simulator::Schedule(ns3::Seconds(deferTime), &DASB::doSendInterest, this, pitEntry, egress, ingress, interest);
 		this->addEntry(interest.getName(), interest.getNonce(), sendNode, ns3::Seconds(deferTime), eventId, m_waitTableInt);
 	}
@@ -97,7 +97,7 @@ void DASB::afterReceiveInterest(const FaceEndpoint &ingress, const Interest &int
 void
 DASB::afterReceiveLoopedInterest(const FaceEndpoint& ingress, const Interest& interest,
                              pit::Entry& pitEntry) {
-	NFD_LOG_DEBUG("afterReceiveLoopedInterest Interest=" << pitEntry.getInterest()<< " in=" << ingress);
+	// NFD_LOG_DEBUG("afterReceiveLoopedInterest Interest=" << pitEntry.getInterest()<< " in=" << ingress);
 	auto it = findEntry(interest.getName(), interest.getNonce(), m_waitTableInt);
 	if (shouldSuppress(ingress, it, m_waitTableInt)) {
 		this->cancelSend(it->eventId);
@@ -135,10 +135,10 @@ void DASB::afterReceiveData(const shared_ptr<pit::Entry> &pitEntry,
 
 	bool isTheConsumer = false;
 	auto now = time::steady_clock::now();
-	// if (pitEntry->getInRecords().size() == 0) {
-	// 		NFD_LOG_DEBUG("pitEntry no InRecords");
-	// 	return;
-	// }
+	if (pitEntry->getOutRecords().size() == 0) {
+			// NFD_LOG_DEBUG("pitEntry no OutRecords");
+		return;
+	}
 	const auto &inface = (pitEntry->getInRecords().begin()->getFace());
 	auto egress = FaceEndpoint(inface, 0);
 	// 判断是否是对应的Consumer
@@ -171,23 +171,13 @@ void DASB::afterReceiveData(const shared_ptr<pit::Entry> &pitEntry,
 		return;
 	}
 
-	// if (it != m_waitTableDat.end()) {
-	// 	if (isInSuppressRegion(it->preNode, sendNode, receiveNode)) {
-	// 		NFD_LOG_DEBUG("had entry in WT and  in suppress region, Cancel Send");
-	// 		this->cancelSend(it->eventId);
-	// 		this->deleteEntry(it, m_waitTableDat);
-	// 		return;
-	// 	}
-	// 	NFD_LOG_DEBUG("had entry in WT but not in suppress region, Do nothing");
-	// 	return;
-	// }
 	const auto transport = ingress.face.getTransport();
 	ns3::ndn::WifiNetDeviceTransportBroadcast *wifiTrans = dynamic_cast<ns3::ndn::WifiNetDeviceTransportBroadcast *>(transport);
 	ns3::Ptr<ns3::Node> receiveNode = wifiTrans->GetNode();
 	int sendNodeId = (ingress.face.getId() - 257) + (receiveNode->GetId() + 257 <= ingress.face.getId());
 	ns3::Ptr<ns3::Node> sendNode = m_nodes[sendNodeId];
 	double deferTime = calculateDeferTime(sendNode, receiveNode);
-	NS_LOG_DEBUG("Wait Time=" << deferTime << ", to send " << data.getName() << " from=" << ingress << " to= " << egress);
+	// NS_LOG_DEBUG("Wait Time=" << deferTime << ", to send " << data.getName() << " from=" << ingress << " to= " << egress);
 	auto eventId = ns3::Simulator::Schedule(ns3::Seconds(deferTime), &DASB::doSendData, this, pitEntry, data, egress);
 	this->addEntry(data.getName(), 0, sendNode, ns3::Seconds(deferTime), eventId, m_waitTableDat);
 }
@@ -242,7 +232,7 @@ DASB::isInSuppressRegion(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> recei
 void
 DASB::cancelSend(ns3::EventId eventId) {
 	ns3::Simulator::Cancel(eventId);
-	NS_LOG_DEBUG("Cancel EventId="<<eventId.GetUid());
+	// NS_LOG_DEBUG("Cancel EventId="<<eventId.GetUid());
 }
 
 std::vector<DASB::m_tableEntry>::iterator

@@ -70,7 +70,7 @@ void MUPF::afterReceiveInterest(const FaceEndpoint& ingress,
      *因为创建无线face时在FIB中添加了“/”的路由，因此匹配到“/”等价于FIB中无匹配项
     */
     if ( it.getFace().getId() != 256+m_nodes.GetN() && prefix == "/") {
-        NFD_LOG_DEBUG("Interest="<<interest << " from=" << ingress<<" no match in FIB, do Content Discovery!");
+        // NFD_LOG_DEBUG("Interest="<<interest << " from=" << ingress<<" no match in FIB, do Content Discovery!");
         contentDiscovery(ingress, interest, pitEntry);
         return;
     }
@@ -85,8 +85,8 @@ void
 MUPF::beforeSatisfyInterest(const shared_ptr<pit::Entry>& pitEntry,
                         const FaceEndpoint& ingress, const Data& data) {
 
-    NFD_LOG_DEBUG("beforeSatisfyInterest pitEntry=" << pitEntry->getName()
-                << " in=" << ingress << " data=" << data.getName());
+    // NFD_LOG_DEBUG("beforeSatisfyInterest pitEntry=" << pitEntry->getName()
+    //             << " in=" << ingress << " data=" << data.getName());
     
     const ndn::Name prefix = pitEntry->getName().getPrefix(1);
     bool isDiscovery = pitEntry->getInterest().getTag<lp::NonDiscoveryTag>() != nullptr;
@@ -100,14 +100,14 @@ MUPF::beforeSatisfyInterest(const shared_ptr<pit::Entry>& pitEntry,
 
     // 当Interest到达Producer后，将Provider ID添加到Data包的`CongestionMarkTag`中。
     if (ingress.face.getId()==256+m_nodes.GetN()) {
-        NFD_LOG_DEBUG("Set Provider ID Tag="<<localNode->GetId());
+        // NFD_LOG_DEBUG("Set Provider ID Tag="<<localNode->GetId());
         data.setTag(make_shared<lp::CongestionMarkTag>(localNode->GetId()));
     }
 
     // 当Data返回到请求的Consumer端时，结束泛洪检索，并触发路径建立过程。
     uint64_t requesterId = pitEntry->getInterest().getTag<lp::CongestionMarkTag>()->get();
     if (requesterId == localNode->GetId()) {
-        NFD_LOG_DEBUG("Content Discovery Finished!");
+        // NFD_LOG_DEBUG("Content Discovery Finished!");
         uint64_t providerNodeId = data.getTag<lp::CongestionMarkTag>()->get();
         ns3::Ptr<ns3::Node> providerNode = m_nodes[providerNodeId];
         this->unicastPathBuilding(prefix, localNode, providerNode);
@@ -147,7 +147,7 @@ MUPF::contentDiscovery(const FaceEndpoint& ingress, const Interest& interest, co
         interest.setTag(make_shared<lp::NonDiscoveryTag>(lp::EmptyValue{}));
         // 使用Interest包的CongestionMarkTag标识Requseter ID
         interest.setTag(make_shared<lp::CongestionMarkTag>(localNode->GetId()));
-        NFD_LOG_DEBUG("Set Requester ID="<<interest.getTag<lp::CongestionMarkTag>()->get());
+        // NFD_LOG_DEBUG("Set Requester ID="<<interest.getTag<lp::CongestionMarkTag>()->get());
     }
 
     for (const auto& nexthop : nexthops) {
@@ -180,7 +180,7 @@ MUPF::unicastPathBuilding(const ndn::Name prefix, ns3::Ptr<ns3::Node> srcNode, n
             weightTable.push_back(entry);
         }
         if (weightTable.size()==0) {
-            NFD_LOG_DEBUG("There is no Path!");
+            // NFD_LOG_DEBUG("There is no Path!");
             return;
         }
         ns3::Ptr<ns3::Node> selectNode = std::max_element(weightTable.begin(), weightTable.end(), [](const auto& a, const auto& b) { return a.Score<b.Score;})->node;
@@ -188,7 +188,7 @@ MUPF::unicastPathBuilding(const ndn::Name prefix, ns3::Ptr<ns3::Node> srcNode, n
         uint32_t faceId = (selectNode->GetId()+256) + (selectNode->GetId() < srcNode->GetId());
         shared_ptr<Face> face = ndn->getFaceById(faceId);
         ns3::ndn::FibHelper::AddRoute(srcNode, prefix, face, 1);
-        NFD_LOG_DEBUG("Add Route: Node="<<srcNode->GetId()<<", Prefix="<<prefix<<", Face="<<faceId);
+        // NFD_LOG_DEBUG("Add Route: Node="<<srcNode->GetId()<<", Prefix="<<prefix<<", Face="<<faceId);
         srcNode = selectNode;
 
         // 巨坑！保存路径，以防止路径环路
@@ -200,7 +200,7 @@ MUPF::unicastPathBuilding(const ndn::Name prefix, ns3::Ptr<ns3::Node> srcNode, n
     uint32_t faceId = (providerNode->GetId()+256) + (providerNode->GetId() < srcNode->GetId());
     shared_ptr<Face> face = ndn->getFaceById(faceId);
     ns3::ndn::FibHelper::AddRoute(srcNode, prefix, face, 1);
-    NFD_LOG_DEBUG("Add Route: Node="<<srcNode->GetId()<<", Prefix="<<prefix<<", Face="<<faceId);
+    // NFD_LOG_DEBUG("Add Route: Node="<<srcNode->GetId()<<", Prefix="<<prefix<<", Face="<<faceId);
 }
 
 nfd::fib::NextHop
@@ -223,7 +223,7 @@ MUPF::selectFIB(const fib::NextHopList& nexthops) {
             selectedHop = nexthop;
         }
     }
-    NFD_LOG_DEBUG("Selected Next Hop = "<<selectedHop.getFace().getId());
+    // NFD_LOG_DEBUG("Selected Next Hop = "<<selectedHop.getFace().getId());
     return selectedHop;
 }
 

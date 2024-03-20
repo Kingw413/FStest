@@ -159,7 +159,7 @@ DIFS::calculateDecisionList(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> re
             double let = this->calculateLET(sendNode, neighEntry.node);
             DIFS::DecisionEntry decisionEntry(neighEntry.node, distance, relativeVel, let);
             decisionList.push_back(decisionEntry);
-            NFD_LOG_DEBUG(neighEntry.node->GetId()<<", "<<distance<<", "<<relativeVel<<", "<<let);
+            // NFD_LOG_DEBUG(neighEntry.node->GetId()<<", "<<distance<<", "<<relativeVel<<", "<<let);
         }
     }
     return decisionList;

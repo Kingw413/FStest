@@ -125,16 +125,14 @@ LISIC::afterContentStoreHit(const shared_ptr<pit::Entry> &pitEntry,
 void LISIC::afterReceiveData(const shared_ptr<pit::Entry> &pitEntry,
 							const FaceEndpoint &ingress, const Data &data)
 {
-	Interest interest = pitEntry->getInterest();
-	// auto it = findEntry(interest.getName(), interest.getNonce());
-	// if (it != m_waitTable.end()) {
-	// 	this->cancelSend(interest, it->eventId);
-	// 	this->deleteEntry(it);
-	// }
-	const auto& inface =  (pitEntry->getInRecords().begin()->getFace());
-    auto egress = FaceEndpoint(inface,0);
+	if (pitEntry->getOutRecords().size() == 0)
+	{
+		// NFD_LOG_DEBUG("pitEntry no OutRecords");
+		return;
+	}
+	const auto &inface = (pitEntry->getInRecords().begin()->getFace());
+	auto egress = FaceEndpoint(inface,0);
 	this->sendData(pitEntry,data,egress);
-	// this->sendDataToAll(pitEntry, ingress, data);
     NFD_LOG_DEBUG("do Send Data="<<data.getName()<<", from="<<ingress<<", to="<<egress);
 }
 
@@ -190,7 +188,7 @@ LISIC::caculateDeferTime(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> recei
 void
 LISIC::cancelSend(Interest interest, ns3::EventId eventId) {
 	ns3::Simulator::Cancel(eventId);
-	NS_LOG_DEBUG("Cancel Forwarding Interest: "<<interest);
+	// NS_LOG_DEBUG("Cancel Forwarding Interest: "<<interest);
 }
 
 } // namespace fw

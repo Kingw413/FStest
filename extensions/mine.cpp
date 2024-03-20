@@ -239,7 +239,7 @@ MINE::selectFIB(ns3::Ptr<ns3::Node> localNode, const Interest &interest, std::se
     }
 
     if (faceList.empty()) {
-        NFD_LOG_DEBUG("No Next Hop!");
+        // NFD_LOG_DEBUG("No Next Hop!");
         return nullptr;
     }
     std::vector<FaceStats> normalizedFaceList  = customNormalize(faceList);

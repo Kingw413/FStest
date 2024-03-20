@@ -66,7 +66,7 @@ void PRFS::afterReceiveInterest(const FaceEndpoint& ingress,
     // 到达producer则直接转发给上层app
     if (egress.face.getId() == 256+m_nodes.GetN()) {
         this->sendInterest(pitEntry, egress, interest);
-        NFD_LOG_DEBUG("producer receive Interest="<<interest << " from=" << ingress << " to=" << egress);
+        // NFD_LOG_DEBUG("producer receive Interest="<<interest << " from=" << ingress << " to=" << egress);
         return;
     }
 
@@ -173,10 +173,10 @@ PRFS::setNextHop(const fib::NextHopList& nexthops,
                 FIRD = rd_node;
             }
         }
-        if(FIRD) {
-            NFD_LOG_DEBUG("FIRD="<<FIRD->GetId()<<", Dis="<<distance);
-        }
-        else{NFD_LOG_DEBUG("No Next FIRD");}
+        // if(FIRD) {
+        //      NFD_LOG_DEBUG("FIRD="<<FIRD->GetId()<<", Dis="<<distance);
+        // }
+        // else{NFD_LOG_DEBUG("No Next FIRD");}
     }
     if (isConsumer || !isRD) {
         double distance = 0;
@@ -187,10 +187,10 @@ PRFS::setNextHop(const fib::NextHopList& nexthops,
                 FIRRD = rrd_node;
             }
         }
-        if(FIRRD) {
-            NFD_LOG_DEBUG("FIRRD=" << FIRRD->GetId() << ", Dis=" << distance);
-        }
-        else{NFD_LOG_DEBUG("No Next FIRRD");}
+        // if(FIRRD) {
+        //     NFD_LOG_DEBUG("FIRRD=" << FIRRD->GetId() << ", Dis=" << distance);
+        // }
+        // else{NFD_LOG_DEBUG("No Next FIRRD");}
     }
 
     PRFS::inteAddField inteEntry(interest.getName(), interest.getNonce(), FIRD, FIRRD);

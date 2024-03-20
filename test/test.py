@@ -5,49 +5,6 @@ import pandas as pd
 STRATEGY_VALUES =['vndn', 'lsif', 'mupf', 'lisic', 'dasb', 'difs', 'prfs', 'mine']
 RESULTS_VALUES = ['FIP', 'FDP', 'ISD' , 'ISR', 'HIR']
 
-def calMetric(logfile: str, delayfile: str, num, rate, time): 
-    logs = open(logfile, 'r').readlines()
-    if (logs[-1] != "end"):
-        return [pd.NA]*len(RESULTS_VALUES)
-    fip=fdp=delay=isr=hir=0
-    fip_num=fdp_num=hit_num=0
-    for line in logs:
-        if ( ("ndn-cxx.nfd" not in line) or ("localhost") in line):
-            continue
-        value = line.split( )
-        if ("do Send Interest" in line or "do Content Discovery" in line):
-            fip_num += 1
-        if ("do Send Data" in line):
-            fdp_num += 1
-        if ("afterContentStoreHit" in line):
-            hit_num += 1
-    fip = round(fip_num/num, 4) 
-    fdp = round(fdp_num/num, 4)
-
-    delay_list= []
-    delays = open(delayfile, 'r').readlines()[1:]
-    for line in delays:
-        value = line.split("\t")
-        if ( value[4] == "LastDelay"):
-            delay_list.append(float(value[5]))
-    if (len(delays) == 0 ):
-        mean_delay = 0
-    else:
-        mean_delay = sum(delay_list) / len(delay_list)
-    delay = round((mean_delay), 6) 
-    isr = round(len(delays)/2/rate/time, 5) 
-    hir = round( hit_num/fip_num, 4) 
-    return [fip, fdp, delay, isr, hir]
-
-def writeMetricToFile(file_path: str, metrics_strategy: pd.DataFrame, run_time: int):
-    try:
-        df = pd.read_csv(file_path, index_col=0)
-    except FileNotFoundError:
-        df = pd.DataFrame(index=RESULTS_VALUES, columns=[])
-        df.to_csv(file_path)
-    df = pd.concat([df, metrics_strategy], axis=1)
-    df.to_csv(file_path)
-
 def runScenarios(trace_folder_path: str):
     # 构建输出log文件夹路径
     parts = trace_folder_path.split('/')

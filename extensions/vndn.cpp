@@ -53,7 +53,7 @@ void VNDN::afterReceiveInterest(const FaceEndpoint &ingress, const Interest &int
 					  { return isNextHopEligible(ingress.face, interest, nexthop, pitEntry); });
 
 	if (it == nexthops.end()) {
-		NFD_LOG_DEBUG(interest << " from=" << ingress << " noNextHop");
+		// NFD_LOG_DEBUG(interest << " from=" << ingress << " noNextHop");
 		return;
 	}
 
@@ -80,7 +80,7 @@ void VNDN::afterReceiveInterest(const FaceEndpoint &ingress, const Interest &int
 		int sendNodeId = (ingress.face.getId() - 257) + (receiveNode->GetId()+257 <= ingress.face.getId());
 		ns3::Ptr<ns3::Node> sendNode = m_nodes[sendNodeId];
 		double deferTime = caculateDeferTime(sendNode, receiveNode);
-		NS_LOG_DEBUG("Wait "<<deferTime<<"s to send Interest=" << interest << " from=" << ingress << " to=" << egress);
+		// NS_LOG_DEBUG("Wait "<<deferTime<<"s to send Interest=" << interest << " from=" << ingress << " to=" << egress);
 		auto eventId = ns3::Simulator::Schedule(ns3::Seconds(deferTime), &VNDN::doSend, this, pitEntry, egress, ingress, interest);
 		this->addEntry(interest.getName(), interest.getNonce(), ns3::Seconds(deferTime), eventId);
 	}
@@ -115,11 +115,11 @@ void VNDN::afterReceiveData(const shared_ptr<pit::Entry> &pitEntry,
 							const FaceEndpoint &ingress, const Data &data)
 {
 	Interest interest = pitEntry->getInterest();
-	// auto it = findEntry(interest.getName(), interest.getNonce());
-	// if (it != m_waitTable.end()) {
-	// 	this->cancelSend(interest, it->eventId);
-	// 	this->deleteEntry(it);
-	// }
+	if (pitEntry->getOutRecords().size() == 0)
+	{
+		// NFD_LOG_DEBUG("pitEntry no OutRecords");
+		return;
+	}
 	const auto& inface =  (pitEntry->getInRecords().begin()->getFace());
     auto egress = FaceEndpoint(inface,0);
     NFD_LOG_DEBUG("do Send Data="<<data.getName()<<", from="<<ingress<<", to="<<egress);
@@ -129,7 +129,7 @@ void VNDN::afterReceiveData(const shared_ptr<pit::Entry> &pitEntry,
 void
 VNDN::cancelSend(Interest interest, ns3::EventId eventId) {
 	ns3::Simulator::Cancel(eventId);
-	NS_LOG_DEBUG("Cancel Forwarding Interest: "<<interest);
+	// NS_LOG_DEBUG("Cancel Forwarding Interest: "<<interest);
 }
 
 double
