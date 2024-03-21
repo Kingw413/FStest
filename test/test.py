@@ -5,6 +5,7 @@ import pandas as pd
 STRATEGY_VALUES =['vndn', 'lsif', 'mupf', 'lisic', 'dasb', 'difs', 'prfs', 'mine']
 RESULTS_VALUES = ['FIP', 'FDP', 'ISD' , 'ISR', 'HIR']
 
+
 def runScenarios(trace_folder_path: str):
     # 构建输出log文件夹路径
     parts = trace_folder_path.split('/')

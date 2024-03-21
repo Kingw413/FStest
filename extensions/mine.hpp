@@ -71,9 +71,10 @@ public:
     double
     calculateDistance(ns3::Ptr<ns3::Node> node1, ns3::Ptr<ns3::Node> node2);
 
-	/*计算LET*/
-	double
-	calculateLET(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> revNode);
+    double
+    caculateDR(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> receiveNode);
+
+    double calculateLET(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> revNode);
 
     /*归一化*/
     std::vector<FaceStats>

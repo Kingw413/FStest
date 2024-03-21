@@ -82,17 +82,17 @@ namespace ns3
 		ns2Mobiity.Install();
 
 		// Install NDN stack on all nodes
-		extern shared_ptr<::nfd::Face> WifiApStaDeviceBroadcastCallback(
+		extern shared_ptr<::nfd::Face> WifiApStaDeviceCallback(
 			Ptr<Node> node, Ptr<ndn::L3Protocol> ndn, Ptr<NetDevice> device);
 		ndn::StackHelper ndnHelper;
 		ndnHelper.AddFaceCreateCallback(WifiNetDevice::GetTypeId(),
-										MakeCallback(&WifiApStaDeviceBroadcastCallback));
+										MakeCallback(&WifiApStaDeviceCallback));
 
 		ndnHelper.setCsSize(20);
 		ndnHelper.InstallAll();
 		std::cout << "Install stack\n";
 
-		ndn::StrategyChoiceHelper::InstallAll("/", "/localhost/nfd/strategy/PRFS/%FD%01");
+		ndn::StrategyChoiceHelper::InstallAll("/", "/localhost/nfd/strategy/MINE/%FD%01");
 
 		// Installing Consumer
 		// ndn::AppHelper consumerHelper("ns3::ndn::ConsumerCbr");
@@ -120,12 +120,18 @@ namespace ns3
 			producerContainer.Add(nodes[id]);
 		}
 		producer.Install(producerContainer);
-		std::cout << "Install "<<consumerContainer.GetN()<<" consumers"
-				  << " and "<<producerContainer.GetN()<<" producers"
-				  << std::endl;
+		std::cout << "Install "<<consumerContainer.GetN()<<" consumers on Node=";
+		for (auto& consumer : consumerContainer) {
+			std::cout<< consumer->GetId()<<", ";
+		}
+		std::cout << " and " << producerContainer.GetN() << " producers on Node=";
+		for (auto &producer : producerContainer) {
+			std::cout << producer->GetId() << ", ";
+		}
+		std::cout<< std::endl;
 
 		ndn::AppDelayTracer::Install(consumerContainer, DelayTrace);
-		// ndn::CsTracer::InstallAll("results/cs_prfs.log", MilliSeconds(1000));
+		// ndn::CsTracer::InstallAll("test/test_cs.log");
 
 		Simulator::Stop(Seconds(Time));
 		Simulator::Run();

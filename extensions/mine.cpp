@@ -187,9 +187,11 @@ MINE::getContentSources(const Interest &interest)
 std::set<Face*>
 MINE::getCandidateForwarders(const fib::NextHopList &nexthops, ns3::Ptr<ns3::Node> curNode, std::set<ns3::Ptr<ns3::Node>> srcNodes)
 {
+    std::set<Face*> inRegionSrcs;
     std::set<Face*> candidateForwarders;
     for (auto &srcNode : srcNodes)
     {
+        double d_sd = ns3::CalculateDistance(curNode->GetObject<ns3::MobilityModel>()->GetPosition(), srcNode->GetObject<ns3::MobilityModel>()->GetPosition());
         for (auto &nexthop : nexthops)
         {
             // Directly return App Face if it is Producer;
@@ -199,18 +201,20 @@ MINE::getCandidateForwarders(const fib::NextHopList &nexthops, ns3::Ptr<ns3::Nod
             uint32_t faceId = nexthop.getFace().getId();
             uint32_t nodeId = (faceId - 257) + (curNode->GetId() + 257 <= faceId);
             ns3::Ptr<ns3::Node> node = m_nodes.Get(nodeId);
-            double d_sd = ns3::CalculateDistance(curNode->GetObject<ns3::MobilityModel>()->GetPosition(), srcNode->GetObject<ns3::MobilityModel>()->GetPosition());
-            double R2 = d_sd;
             double d_sj = ns3::CalculateDistance(curNode->GetObject<ns3::MobilityModel>()->GetPosition(), node->GetObject<ns3::MobilityModel>()->GetPosition());
             double d_jd = ns3::CalculateDistance(node->GetObject<ns3::MobilityModel>()->GetPosition(), srcNode->GetObject<ns3::MobilityModel>()->GetPosition());
-            if (d_sj <= Rth && d_jd <= R2)
+            // 判断是否是Content Source
+            if (d_sd < Rth && nodeId == srcNode->GetId()) {
+                inRegionSrcs.emplace(&nexthop.getFace());
+            }
+            if (d_sj < Rth && d_jd <= d_sd)
             {
                 candidateForwarders.emplace(&nexthop.getFace());
                 // NFD_LOG_DEBUG("Source=" << srcNode->GetId()<<", Candidate="<<nodeId<< ", d_sd=" << d_sd << ", d_sj=" << d_sj << ", d_jd=" << d_jd);
             }
         }
     }
-    return candidateForwarders;
+    return inRegionSrcs.size()>0? inRegionSrcs : candidateForwarders;
 }
 
 Face*
@@ -222,7 +226,8 @@ MINE::selectFIB(ns3::Ptr<ns3::Node> localNode, const Interest &interest, std::se
             return face;
         }
         uint32_t nodeId = (face->getId() - 257) + (localNode->GetId() + 257 <= face->getId());
-        double distance = this->calculateDistance(localNode, m_nodes[nodeId]);
+        // double distance = this->calculateDistance(localNode, m_nodes[nodeId]);
+        double distance = this->caculateDR(localNode, m_nodes[nodeId]);
         FaceInfo *info = m_measurements.getFaceInfo(fibEntry, interest, face->getId());
         if (info == nullptr)
         {
@@ -349,6 +354,21 @@ MINE::calculateDistance(ns3::Ptr<ns3::Node> node1, ns3::Ptr<ns3::Node> node2) {
     ns3::Ptr<ns3::MobilityModel> mobility2 = node2->GetObject<ns3::MobilityModel>();
     double d = mobility1->GetDistanceFrom(mobility2) + 0.0001;
 	return d;
+}
+
+double
+MINE::caculateDR(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> receiveNode)
+{
+    double eculid = this->calculateDistance(sendNode, receiveNode);
+    ns3::Ptr<ns3::MobilityModel> mobility = sendNode->GetObject<ns3::MobilityModel>();
+    ns3::Vector3D nodePos = mobility->GetPosition();
+    ns3::Ptr<ns3::MobilityModel> remoteMob = receiveNode->GetObject<ns3::MobilityModel>();
+    ns3::Vector3D remotePos = remoteMob->GetPosition();
+    // ns3::Vector3D direction = remoteMob->GetVelocity();
+    ns3::Vector3D direction = {1.0, 0.0, 0.0};
+    double angle = std::atan2(direction.x, direction.y) - std::atan2(remotePos.x - nodePos.x, remotePos.y - nodePos.y);
+    double dr = abs(eculid * cos(angle));
+    return dr;
 }
 
 double

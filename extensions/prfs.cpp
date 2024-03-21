@@ -27,7 +27,7 @@ PRFS::PRFS(Forwarder& forwarder, const Name& name)
     : Strategy(forwarder),
       ProcessNackTraits(this),
       m_Rth(200.0),
-      m_LET_alpha(1.0),
+      m_LET_alpha(3.0),
       m_nodes(ns3::NodeContainer::GetGlobal()),
       m_retxSuppression(RETX_SUPPRESSION_INITIAL,
                         RetxSuppressionExponential::DEFAULT_MULTIPLIER,
@@ -154,7 +154,10 @@ PRFS::setNextHop(const fib::NextHopList& nexthops,
         int remoteNodeId = (hop->getFace().getId() - 257) + (node->GetId()+257 <= hop->getFace().getId());
 	    ns3::Ptr<ns3::Node> remoteNode = m_nodes[remoteNodeId];
         // 跳过在通信范围之外的节点
-        if (calculateDistance(node, remoteNode) > m_Rth) { continue; }
+        if (calculateDistance(node, remoteNode) > m_Rth || calculateLET(node, remoteNode) < m_LET_alpha)
+        {
+            continue;
+        }
         // 按照方向将节点分成两个集合
         if (isRoadDirection(node, remoteNode)) { 
             DL_RD.push_back(remoteNode);
