@@ -9,17 +9,19 @@ def calMetric(logfile: str, delayfile: str, num, rate, time):
     logs = open(logfile, 'r').readlines()
     if (logs[-1] != "end"):
         return [pd.NA]*len(RESULTS_VALUES)
-    fip=fdp=delay=isr=hir=hc=0
-    fip_num=fdp_num=hit_num=0
+    fip=fdp=0
+    fip_num=fdp_num=hit_num=sat_by_pro_num = 0
     for line in logs:
-        if ( ("ndn-cxx.nfd" not in line) or ("localhost") in line):
+        if ("localhost" in line):
             continue
-        if ("do Send Interest" in line or "do Content Discovery" in line):
+        if ("do Send Interest" in line):
             fip_num += 1
         if ("do Send Data" in line):
             fdp_num += 1
         if ("afterContentStoreHit" in line):
             hit_num += 1
+        if ("responding with Data" in line):
+            sat_by_pro_num += 1
     fip = round(fip_num/num, 4) 
     fdp = round(fdp_num/num, 4)
 
@@ -33,16 +35,17 @@ def calMetric(logfile: str, delayfile: str, num, rate, time):
     if (len(delays) == 0 ):
         mean_delay = 0
         mean_hc = 0
+        isr = 0
+        hir = 0
     else:
-        mean_delay = sum(delay_list) / len(delay_list)
-        mean_hc = sum(hc_list) / len(hc_list)
-    delay = round((mean_delay), 6) 
-    isr = round(len(delays)/2/rate/time, 5) 
-    hir = round( hit_num/fip_num, 4) 
-    hc = round(mean_hc, 2)
-    return [fip, fdp, delay, isr, hir, hc]
+        mean_delay = round (sum(delay_list) / len(delay_list), 6)
+        mean_hc =round( sum(hc_list) / len(hc_list), 2)
+        isr = round(len(delays)/2/rate/time, 5) 
+        # hir = round( hit_num/(fip_num+hit_num), 4) 
+        hir = round((len(delays)/2 - sat_by_pro_num)/ (len(delays)/2), 4)
+    return [fip, fdp, mean_delay, isr, hir, mean_hc]
 
-def writeResultToFile(logs_folder:str, delays_folder:str, results_folder: str, indicators):
+def writeResultToFile(logs_folder:str, delays_folder:str, results_folder: str, indicators, scenario:str):
     for indicator in indicators:
         resultfile = results_folder +"/" + str(indicator) + ".csv"
         if (os.path.exists(resultfile)):
@@ -50,7 +53,11 @@ def writeResultToFile(logs_folder:str, delays_folder:str, results_folder: str, i
         for strategy in STRATEGY_VALUES:
             logfile = logs_folder +"/" + str(indicator) + "/" + strategy +".log"
             delayfile = delays_folder +"/" + str(indicator) + "/" + strategy +".log"
-            metric = calMetric(logfile, delayfile, indicator, RATE, TIME)
+            if scenario == "1_Num":
+                num = indicator
+            else:
+                num = 100
+            metric = calMetric(logfile, delayfile, num, RATE, TIME)
             strategy_metrics = pd.DataFrame({strategy : metric}, index=RESULTS_VALUES)
             try:
                 df = pd.read_csv(resultfile, index_col=0)
@@ -69,7 +76,7 @@ def resultAndPlot(scenario:str, indicators:list, index_label):
     os.makedirs(logs_folder, exist_ok=True)
     os.makedirs(delays_folder, exist_ok=True)
     os.makedirs(results_folder, exist_ok=True)
-    writeResultToFile(logs_folder, delays_folder ,results_folder, indicators)
+    writeResultToFile(logs_folder, delays_folder ,results_folder, indicators, scenario)
 
     # 创建一个空的DataFrame来存储所有实验数据
     all_data = pd.DataFrame()
