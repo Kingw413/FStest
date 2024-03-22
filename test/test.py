@@ -1,14 +1,25 @@
 import os
-import re
-import random
 import pandas as pd
 
 def run(trace, logfile_folder, delayfile_folder, num, consumers, producers, popularity):
     for strategy in STRATEGY_VALUES:
-        logfile = os.path.join(logfile_folder, f'{strategy}.log')
-        delayfile = os.path.join(delayfile_folder, f'{strategy}.log')
+        if (strategy == "mupf"):
+            parts = logfile_folder.split('/')
+            parts.pop(0)
+            temp_logfile_folder = os.path.join(*parts)
+            parts2 = delayfile_folder.split('/')
+            parts2.pop(0)
+            temp_delayfile_folder = os.path.join(*parts2)
+            os.makedirs(temp_logfile_folder, exist_ok=True)
+            os.makedirs(temp_delayfile_folder, exist_ok=True)
+            logfile = os.path.join(temp_logfile_folder, f'{strategy}.log')
+            delayfile = os.path.join(temp_delayfile_folder, f'{strategy}.log')
+        else:      
+            logfile = os.path.join(logfile_folder, f'{strategy}.log')
+            delayfile = os.path.join(delayfile_folder, f'{strategy}.log')
         print(f"{logfile} 仿真开始")
         command = f'NS_LOG=ndn-cxx.nfd.{strategy.upper()}:ndn.Producer ./waf --run "{strategy} --num={num} --consumers={consumers} --producers={producers} --popularity={popularity} --rate={RATE} --time={TIME} --trace={trace}  --delay_log={delayfile}"> {logfile} 2>&1'
+        print(command)
         if (os.path.exists(logfile) and os.path.exists(delayfile)):
             logs = open(logfile, 'r').readlines()
             run_times = 1
@@ -48,7 +59,7 @@ def runScenario(scenario: str, indicators: list):
             popularity = indicator
         run(trace, logfile_folder, delayfile_folder, num, consumers, producers, popularity)
 
-STRATEGY_VALUES =['vndn', 'dasb', 'lisic', 'mupf','prfs', 'mine']
+STRATEGY_VALUES =['vndn', 'dasb', 'lisic', 'mupf', 'prfs', 'mine']
 RESULTS_VALUES = ['FIP', 'FDP', 'ISD' , 'ISR', 'HIR']
 RATE = 10.0
 TIME = 20.0

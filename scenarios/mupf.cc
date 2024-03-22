@@ -121,6 +121,7 @@ namespace ns3
 			producerContainer.Add(nodes[id]);
 		}
 		producer.Install(producerContainer);
+		std::cout<<"Trace="<<MobilityTrace<<", Num="<<N<<std::endl;
 		std::cout << "Install " << consumerContainer.GetN() << " consumers on Node=";
 		for (auto &consumer : consumerContainer)
 		{
