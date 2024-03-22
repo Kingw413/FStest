@@ -2,49 +2,62 @@ import os
 import re
 import random
 import pandas as pd
-STRATEGY_VALUES =['vndn', 'lsif', 'mupf', 'lisic', 'dasb', 'difs', 'prfs', 'mine']
-RESULTS_VALUES = ['FIP', 'FDP', 'ISD' , 'ISR', 'HIR']
 
+def run(trace, logfile_folder, delayfile_folder, num, consumers, producers, popularity):
+    for strategy in STRATEGY_VALUES:
+        logfile = os.path.join(logfile_folder, f'{strategy}.log')
+        delayfile = os.path.join(delayfile_folder, f'{strategy}.log')
+        print(f"{logfile} 仿真开始")
+        command = f'NS_LOG=ndn-cxx.nfd.{strategy.upper()}:ndn.Producer ./waf --run "{strategy} --num={num} --consumers={consumers} --producers={producers} --popularity={popularity} --rate={RATE} --time={TIME} --trace={trace}  --delay_log={delayfile}"> {logfile} 2>&1'
+        if (os.path.exists(logfile) and os.path.exists(delayfile)):
+            logs = open(logfile, 'r').readlines()
+            run_times = 1
+            while (logs[-1] != "end" and run_times<4):
+                print(f"{logfile} 仿真失败，重试第{run_times}次")
+                os.system(command)
+                logs = open(logfile, 'r').readlines()
+                run_times += 1  
+        else:
+            os.system(command)
+        print(f"{logfile} 仿真结束")
 
-def runScenarios(trace_folder_path: str):
-    # 构建输出log文件夹路径
-    parts = trace_folder_path.split('/')
-
-    filename_pattern = re.compile(r'n(\d+)\.tcl')
-
-    # 遍历文件夹下所有文件
-    for filename in os.listdir(trace_folder_path):
-        # 使用正则表达式匹配文件名中的 'n' 和 'v' 值
-        match = filename_pattern.match(filename)
-        num = int(match.group(1))
-        trace = os.path.join(trace_folder_path, filename)
-        logfile_folder =  'test/logs/' + parts[1] +  "/n"  + str(num) 
-        delayfile_folder =  'test/logs_delay/' + parts[1] +  "/n"  + str(num) 
-        # results_folder =  'test/logs_results/' + parts[1] +  "/n"  + str(num) 
-        results_file =  'test/logs_results/' + parts[1] +  "/n"  + str(num) +".csv"
+def runScenario(scenario: str, indicators: list):
+    print(f"{scenario} 仿真开始")
+    for indicator in indicators:
+        logfile_folder =  'test/logs/' + scenario +  "/"  + str(indicator) 
+        delayfile_folder =  'test/logs_delay/' +scenario +  "/"  + str(indicator) 
         os.makedirs(logfile_folder, exist_ok=True)
         os.makedirs(delayfile_folder, exist_ok=True)
+        if scenario == "1_Num":
+            trace = "mobility-traces/" + scenario + "/n" + str(indicator) +".tcl"
+            num = indicator+1
+            consumers = [0]
+            producers = [indicator]
+            popularity = 0.7
+        elif (scenario == "2_cpPairs"):
+            trace = "mobility-traces/" + scenario + "/n" + str(indicator) +".tcl"
+            num = 101
+            consumers = [x for x in range(indicator)]
+            producers = [y for y in range(indicator, indicator*2)]
+            popularity = 0.7
+        elif (scenario == "3_Popularity"):
+            trace = "mobility-traces/1_Num/n100.tcl"
+            num = 101
+            consumers = [0]
+            producers = [100]
+            popularity = indicator
+        run(trace, logfile_folder, delayfile_folder, num, consumers, producers, popularity)
 
-        consumer = 0
-        producer = num
-        rate = 10
-        time = 20
-        for strategy in STRATEGY_VALUES:
-            logfile = os.path.join(logfile_folder, f'{strategy}.log')
-            delayfile = os.path.join(delayfile_folder, f'{strategy}.log')
-            print(f"num={num}_strategy={strategy} 仿真开始")
-            command = f'NS_LOG=ndn-cxx.nfd.{strategy.upper()}:ndn.Producer ./waf --run "{strategy} --num={num+1} --id1={consumer} --id2={producer}  --rate={rate} --time={time} --trace={trace}  --delay_log={delayfile}"> {logfile} 2>&1'
-            if (os.path.exists(logfile) and os.path.exists(delayfile)):
-                logs = open(logfile, 'r').readlines()
-                run_times = 1
-                while (logs[-1] != "end" and run_times<4):
-                    print(f"num={num}_strategy={strategy} 仿真失败，重试第{run_times}次")
-                    os.system(command)
-                    logs = open(logfile, 'r').readlines()
-                    run_times += 1  
-            else:
-                os.system(command)
-            print(f"num={num}_strategy={strategy} 仿真结束")
-        print(f"num={num}仿真结束")
-runScenarios('mobility-traces/1_Num')
-print("场景一批处理任务完成。")
+STRATEGY_VALUES =['vndn', 'dasb', 'lisic', 'mupf','prfs', 'mine']
+RESULTS_VALUES = ['FIP', 'FDP', 'ISD' , 'ISR', 'HIR']
+RATE = 10.0
+TIME = 20.0
+nums =  [num for num in range(40, 161, 20)]
+pairs = [x for x in range(1, 11)]
+popularitys = [round(0.5 + i*0.1,1) for i in range(11)]
+runScenario("1_Num", nums)
+print("场景1批处理任务完成。")
+runScenario("2_cpPairs", pairs)
+print("场景2批处理任务完成。")
+runScenario("3_Popularity", popularitys)
+print("场景3批处理任务完成。")

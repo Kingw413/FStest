@@ -78,7 +78,7 @@ void LISIC::afterReceiveInterest(const FaceEndpoint &ingress, const Interest &in
 		int sendNodeId = (ingress.face.getId() - 257) + (receiveNode->GetId()+257 <= ingress.face.getId());
 		ns3::Ptr<ns3::Node> sendNode = m_nodes[sendNodeId];
 		double deferTime = caculateDeferTime(sendNode, receiveNode);
-		NS_LOG_DEBUG("Wait="<<deferTime<<"(s) to send Interest=" << interest << " from=" << ingress << " to=" << egress);
+		// NS_LOG_DEBUG("Wait="<<deferTime<<"(s) to send Interest=" << interest << " from=" << ingress << " to=" << egress);
 		auto eventId = ns3::Simulator::Schedule(ns3::Seconds(deferTime), &LISIC::doSend, this, pitEntry, egress, ingress, interest);
 		this->addEntry(interest.getName(), interest.getNonce(), ns3::Seconds(deferTime), eventId);
 	}
@@ -105,7 +105,7 @@ void LISIC::doSend(const shared_ptr<pit::Entry> &pitEntry,
 				  const FaceEndpoint &egress, const FaceEndpoint &ingress,
 				  const Interest &interest)
 {
-	NFD_LOG_INFO("do Send Interest " << interest << " from=" << ingress << " to=" << egress);
+	NFD_LOG_INFO("do Send Interest=" << interest << " from=" << ingress << " to=" << egress);
 	this->sendInterest(pitEntry, egress, interest);
 	auto it = findEntry(interest.getName(), interest.getNonce());
 	this->deleteEntry(it);

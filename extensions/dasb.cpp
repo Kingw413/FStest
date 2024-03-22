@@ -112,7 +112,7 @@ void
 DASB::doSendInterest(const shared_ptr<pit::Entry> &pitEntry,
 				  const FaceEndpoint &egress, const FaceEndpoint &ingress,
 				  const Interest &interest) {
-	NFD_LOG_INFO("do Send Interest" << interest << " from=" << ingress << " to=" << egress);
+	NFD_LOG_INFO("do Send Interest=" << interest << " from=" << ingress << " to=" << egress);
 	this->sendInterest(pitEntry, egress, interest);
 	auto it = findEntry(interest.getName(), interest.getNonce(), m_waitTableInt);
 	this->deleteEntry(it,m_waitTableInt);
@@ -185,7 +185,7 @@ void DASB::afterReceiveData(const shared_ptr<pit::Entry> &pitEntry,
 void
 DASB::doSendData(const shared_ptr<pit::Entry>& pitEntry,
                         const Data& data, const FaceEndpoint& egress) {
-    NFD_LOG_DEBUG("do Send Data="<<data<<"to= "<<egress);
+    NFD_LOG_DEBUG("do Send Data="<<data.getName()<<"to= "<<egress);
     this->sendData(pitEntry, data, egress);
     auto it = findEntry(data.getName(),0, m_waitTableDat);
     this->deleteEntry(it,m_waitTableDat);                       

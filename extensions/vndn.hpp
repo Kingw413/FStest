@@ -31,11 +31,14 @@ public:
 	void
 	afterReceiveInterest(const FaceEndpoint &ingress, const Interest &interest,
 					const shared_ptr<pit::Entry> &pitEntry) override;
-	void
-	afterReceiveData(const shared_ptr<pit::Entry> &pitEntry,
-					const FaceEndpoint &ingress, const Data &data) override;
-					
-  	/*收到相同的广播包时触发*/
+
+	void afterContentStoreHit(const shared_ptr<pit::Entry> &pitEntry,
+									const FaceEndpoint &ingress, const Data &data) override;
+	
+	void afterReceiveData(const shared_ptr<pit::Entry> &pitEntry,
+									const FaceEndpoint &ingress, const Data &data) override;
+
+	/*收到相同的广播包时触发*/
 	void
 	afterReceiveLoopedInterest(const FaceEndpoint& ingress, const Interest& interest,
                     pit::Entry& pitEntry) override;

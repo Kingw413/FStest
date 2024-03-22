@@ -90,7 +90,7 @@ void VNDN::afterReceiveInterest(const FaceEndpoint &ingress, const Interest &int
 void
 VNDN::afterReceiveLoopedInterest(const FaceEndpoint& ingress, const Interest& interest,
                              pit::Entry& pitEntry) {
-	NFD_LOG_DEBUG("afterReceiveLoopedInterest Interest=" << interest<< " in=" << ingress);
+	// NFD_LOG_DEBUG("afterReceiveLoopedInterest Interest=" << interest<< " in=" << ingress);
 	auto it = findEntry(interest.getName(), interest.getNonce());
 	if (it != m_waitTable.end()) {
 		this->cancelSend(interest, it->eventId);
@@ -105,10 +105,20 @@ void VNDN::doSend(const shared_ptr<pit::Entry> &pitEntry,
 				  const FaceEndpoint &egress, const FaceEndpoint &ingress,
 				  const Interest &interest)
 {
-	NFD_LOG_INFO("do Send Interest" << interest << " from=" << ingress << " to=" << egress);
+	NFD_LOG_INFO("do Send Interest=" << interest << " from=" << ingress << " to=" << egress);
 	this->sendInterest(pitEntry, egress, interest);
 	auto it = findEntry(interest.getName(), interest.getNonce());
 	this->deleteEntry(it);
+}
+
+void VNDN::afterContentStoreHit(const shared_ptr<pit::Entry> &pitEntry,
+								const FaceEndpoint &ingress, const Data &data)
+{
+	NFD_LOG_DEBUG("afterContentStoreHit pitEntry=" << pitEntry->getName()
+												   << " in=" << ingress << " data=" << data.getName());
+
+	this->sendData(pitEntry, data, ingress);
+	NFD_LOG_DEBUG("do Send Data=" << data.getName() << ", from=" << ingress);
 }
 
 void VNDN::afterReceiveData(const shared_ptr<pit::Entry> &pitEntry,

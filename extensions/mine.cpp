@@ -62,8 +62,12 @@ void MINE::afterReceiveInterest(const FaceEndpoint& ingress,
     std::set<Face*> candidates = this->getCandidateForwarders(nexthops, localNode, sources);
 
     auto it = this->selectFIB(localNode, interest, candidates, fibEntry);
+    if (it == nullptr) {
+        // NFD_LOG_DEBUG("No Next Hop!");
+        return;
+    }
     auto egress = FaceEndpoint(*it, 0);
-    NFD_LOG_DEBUG("do Send Interest="<<interest << " from=" << ingress << "to=" << egress);
+    NFD_LOG_DEBUG("do Send Interest="<<interest << " from=" << ingress << ", to=" << egress);
 	this->sendInterest(pitEntry, egress, interest);
     FaceInfo &faceInfo = m_measurements.getOrCreateFaceInfo(fibEntry, interest, egress.face.getId());
 
@@ -162,7 +166,7 @@ MINE::getContentSources(const Interest &interest)
         for (const auto& entry : cs) {
             if (entry.canSatisfy(interest))
             {
-                // std::cout << "Content found in node " <<node->GetId()<< std::endl;
+                std::cout << "Content found in node " <<node->GetId()<< std::endl;
                 sources.emplace(node);
                 break;
             }
@@ -204,13 +208,18 @@ MINE::getCandidateForwarders(const fib::NextHopList &nexthops, ns3::Ptr<ns3::Nod
             double d_sj = ns3::CalculateDistance(curNode->GetObject<ns3::MobilityModel>()->GetPosition(), node->GetObject<ns3::MobilityModel>()->GetPosition());
             double d_jd = ns3::CalculateDistance(node->GetObject<ns3::MobilityModel>()->GetPosition(), srcNode->GetObject<ns3::MobilityModel>()->GetPosition());
             // 判断是否是Content Source
-            if (d_sd < Rth && nodeId == srcNode->GetId()) {
-                inRegionSrcs.emplace(&nexthop.getFace());
+            if (d_sd < Rth) {
+                if (nodeId == srcNode->GetId())
+                    inRegionSrcs.emplace(&nexthop.getFace());
+                    // NFD_LOG_DEBUG("Source="<<srcNode->GetId()<<" in region");
             }
-            if (d_sj < Rth && d_jd <= d_sd)
+            else if (d_sj < Rth && d_jd <= d_sd)
             {
                 candidateForwarders.emplace(&nexthop.getFace());
                 // NFD_LOG_DEBUG("Source=" << srcNode->GetId()<<", Candidate="<<nodeId<< ", d_sd=" << d_sd << ", d_sj=" << d_sj << ", d_jd=" << d_jd);
+            }
+            else {
+                // NFD_LOG_DEBUG("Source=" << srcNode->GetId() << ", Node=" << nodeId <<" is not candidate"<< ", d_sd=" << d_sd << ", d_sj=" << d_sj << ", d_jd=" << d_jd);
             }
         }
     }

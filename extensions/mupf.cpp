@@ -156,8 +156,8 @@ MUPF::contentDiscovery(const FaceEndpoint& ingress, const Interest& interest, co
         if ( ingress.face.getId() == nexthop.getFace().getId() ||  !isInRegion(localNode, othNode) ) { continue; }
         auto egress = FaceEndpoint(nexthop.getFace(), 0);
         this->sendInterest(pitEntry, egress, interest);
-        // NFD_LOG_DEBUG("do Send Interest="<<interest << " from=" << ingress << "to=" << egress);
     }
+    NFD_LOG_DEBUG("do Send Interest=" << interest << " Broadcast from=" << ingress);
 }
 
 void
