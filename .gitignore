@@ -9,8 +9,8 @@ build/
 *.log
 *.pcap
 *.tcl
-*.csv
-*.png
+# *.csv
+# *.png
 .vscode/
 logs/
 logs_delay/

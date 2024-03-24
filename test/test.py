@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+import numpy as np
 
 def run(trace, logfile_folder, delayfile_folder, num, consumers, producers, popularity):
     for strategy in STRATEGY_VALUES:
@@ -49,10 +50,12 @@ def runScenario(scenario: str, indicators: list):
             producers = [indicator]
             popularity = 0.7
         elif (scenario == "2_cpPairs"):
-            trace = "mobility-traces/" + scenario + "/n" + str(indicator) +".tcl"
+            trace = "mobility-traces/1_Num/n100.tcl"
             num = 101
-            consumers = [x for x in range(indicator)]
-            producers = [y for y in range(indicator, indicator*2)]
+            candidate_consumers = [x for x in range(1, 100)]
+            candidate_producers = [x for x in range(1, 100) if x not in candidate_consumers]
+            consumers = [0] + list(np.random.choice(candidate_consumers, indicator-1))
+            producers = [100] + list(np.random.choice(candidate_producers, indicator-1))
             popularity = 0.7
         elif (scenario == "3_Popularity"):
             trace = "mobility-traces/1_Num/n100.tcl"
