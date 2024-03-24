@@ -107,8 +107,8 @@ private:
     static const double Alpha;
     static const double Beta;
 
-	ns3::NodeContainer m_nodes;
-    bool m_isContentDiscovery = false;
+    ns3::NodeContainer m_nodes;
+    std::unordered_map<ns3::Ptr<ns3::Node>, bool> m_hadContentDiscovery;
 	std::vector<MUPF::weightTableEntry> m_WT;
 	std::vector<MUPF::neighborTableEntry> m_NT;
     std::unordered_map<ns3::Ptr<ns3::Node>,  std::set<ns3::Ptr<ns3::Node>>> m_path;

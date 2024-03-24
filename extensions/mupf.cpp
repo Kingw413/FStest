@@ -109,8 +109,9 @@ MUPF::beforeSatisfyInterest(const shared_ptr<pit::Entry>& pitEntry,
     if (requesterId == localNode->GetId()) {
         // NFD_LOG_DEBUG("Content Discovery Finished!");
         uint64_t providerNodeId = data.getTag<lp::CongestionMarkTag>()->get();
-        ns3::Ptr<ns3::Node> providerNode = m_nodes[providerNodeId];
-        this->unicastPathBuilding(prefix, localNode, providerNode);
+        ns3::Ptr<ns3::Node> providerNode = m_nodes.Get(providerNodeId);
+        if ( m_hadContentDiscovery.count(providerNode) == 0)
+            this->unicastPathBuilding(prefix, localNode, providerNode);
     } 
 }
 
@@ -121,7 +122,7 @@ MUPF::afterContentStoreHit(const shared_ptr<pit::Entry>& pitEntry,
 //   NFD_LOG_DEBUG("afterContentStoreHit pitEntry=" << pitEntry->getName()
 //                 << " in=" << ingress << " data=" << data.getName());
   this->sendData(pitEntry, data, ingress);
-    NFD_LOG_DEBUG("do Send Data="<<data.getName()<<", from="<<ingress);
+  NFD_LOG_DEBUG("do Send Data="<<data.getName()<<", from="<<ingress);
 }
 
 void
@@ -166,6 +167,10 @@ MUPF::unicastPathBuilding(const ndn::Name prefix, ns3::Ptr<ns3::Node> srcNode, n
     if (m_path.empty()) {
         m_path.emplace(providerNode, std::set<ns3::Ptr<ns3::Node>>{srcNode});
     }
+    // if (m_path[providerNode].count(providerNode)) {
+    //     NFD_LOG_DEBUG("Path Build for Provider="<<providerNode->GetId()<<" Finished.");
+    //     return;
+    // }
     
     // 循环执行直到Producer在当前relay的范围内
     while ( !isInRegion(srcNode, providerNode) ) {
@@ -180,7 +185,7 @@ MUPF::unicastPathBuilding(const ndn::Name prefix, ns3::Ptr<ns3::Node> srcNode, n
             weightTable.push_back(entry);
         }
         if (weightTable.size()==0) {
-            // NFD_LOG_DEBUG("There is no Path!");
+            // NFD_LOG_DEBUG("Current Node=" << srcNode->GetId() << ", there is no next relay!");
             return;
         }
         ns3::Ptr<ns3::Node> selectNode = std::max_element(weightTable.begin(), weightTable.end(), [](const auto& a, const auto& b) { return a.Score<b.Score;})->node;
@@ -200,7 +205,10 @@ MUPF::unicastPathBuilding(const ndn::Name prefix, ns3::Ptr<ns3::Node> srcNode, n
     uint32_t faceId = (providerNode->GetId()+256) + (providerNode->GetId() < srcNode->GetId());
     shared_ptr<Face> face = ndn->getFaceById(faceId);
     ns3::ndn::FibHelper::AddRoute(srcNode, prefix, face, 1);
+    m_path[providerNode].emplace(srcNode);
+    m_hadContentDiscovery[providerNode] = true;
     // NFD_LOG_DEBUG("Add Route: Node="<<srcNode->GetId()<<", Prefix="<<prefix<<", Face="<<faceId);
+    // NFD_LOG_DEBUG("Path Build Succeeful!");
 }
 
 nfd::fib::NextHop
@@ -237,7 +245,8 @@ MUPF::isIntermediateNode(ns3::Ptr<ns3::Node> node, ns3::Ptr<ns3::Node> srcNode, 
     // 巨坑！新增补丁：保存路径，以防止路径环路
     auto path = m_path.find(desNode);
     auto it = std::find(path->second.begin(), path->second.end(), node);
-      if ( it==path->second.end() && d_sj <= Rth && d_jd <= R2) {
+    if ( it==path->second.end() && d_sj <= Rth && d_jd <= R2) {
+        // NFD_LOG_DEBUG("node="<<node->GetId()<<" in region of current="<<srcNode->GetId()<<", provider="<<desNode->GetId());
         return true;
     }
     return false;

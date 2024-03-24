@@ -3,6 +3,7 @@ import pandas as pd
 
 def run(trace, logfile_folder, delayfile_folder, num, consumers, producers, popularity):
     for strategy in STRATEGY_VALUES:
+        """         
         if (strategy == "mupf"):
             parts = logfile_folder.split('/')
             parts.pop(0)
@@ -17,9 +18,11 @@ def run(trace, logfile_folder, delayfile_folder, num, consumers, producers, popu
         else:      
             logfile = os.path.join(logfile_folder, f'{strategy}.log')
             delayfile = os.path.join(delayfile_folder, f'{strategy}.log')
+        """
+        logfile = os.path.join(logfile_folder, f'{strategy}.log')
+        delayfile = os.path.join(delayfile_folder, f'{strategy}.log')
         print(f"{logfile} 仿真开始")
         command = f'NS_LOG=ndn-cxx.nfd.{strategy.upper()}:ndn.Producer ./waf --run "{strategy} --num={num} --consumers={consumers} --producers={producers} --popularity={popularity} --rate={RATE} --time={TIME} --trace={trace}  --delay_log={delayfile}"> {logfile} 2>&1'
-        print(command)
         if (os.path.exists(logfile) and os.path.exists(delayfile)):
             logs = open(logfile, 'r').readlines()
             run_times = 1
@@ -57,15 +60,25 @@ def runScenario(scenario: str, indicators: list):
             consumers = [0]
             producers = [100]
             popularity = indicator
+        elif (scenario == "4_Speed"):
+            trace = "mobility-traces/" + scenario + "/" + str(indicator) +".tcl"
+            num = 101
+            consumers = [0]
+            producers = [100]
+            popularity = 0.7
         run(trace, logfile_folder, delayfile_folder, num, consumers, producers, popularity)
 
-STRATEGY_VALUES =['vndn', 'dasb', 'lisic', 'mupf', 'prfs', 'mine']
+STRATEGY_VALUES =['vndn', 'dasb', 'lisic', 'difs', 'prfs', 'mine']
+# STRATEGY_VALUES =['difs']
 RESULTS_VALUES = ['FIP', 'FDP', 'ISD' , 'ISR', 'HIR']
 RATE = 10.0
 TIME = 20.0
 nums =  [num for num in range(40, 161, 20)]
 pairs = [x for x in range(1, 11)]
 popularitys = [round(0.5 + i*0.1,1) for i in range(11)]
+speeds = [x for x in range(80, 121, 10)]
+runScenario("4_Speed", speeds)
+print("场景4批处理任务完成。")
 runScenario("1_Num", nums)
 print("场景1批处理任务完成。")
 runScenario("2_cpPairs", pairs)

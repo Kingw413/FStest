@@ -51,6 +51,20 @@ def writeResultToFile(logs_folder:str, delays_folder:str, results_folder: str, i
         if (os.path.exists(resultfile)):
             os.remove(resultfile)
         for strategy in STRATEGY_VALUES:
+            '''
+            if (strategy == "mupf"):
+                parts = logs_folder.split('/')
+                parts.pop(0)
+                temp_logfile_folder = os.path.join(*parts)
+                parts2 = delays_folder.split('/')
+                parts2.pop(0)
+                temp_delayfile_folder = os.path.join(*parts2)
+                logfile = temp_logfile_folder +"/" + str(indicator) + "/" + strategy +".log"
+                delayfile = temp_delayfile_folder +"/" + str(indicator) + "/" + strategy +".log"
+            else:      
+                logfile = logs_folder +"/" + str(indicator) + "/" + strategy +".log"
+                delayfile = delays_folder +"/" + str(indicator) + "/" + strategy +".log"
+            '''
             logfile = logs_folder +"/" + str(indicator) + "/" + strategy +".log"
             delayfile = delays_folder +"/" + str(indicator) + "/" + strategy +".log"
             if scenario == "1_Num":
@@ -76,6 +90,7 @@ def resultAndPlot(scenario:str, indicators:list, index_label):
     os.makedirs(logs_folder, exist_ok=True)
     os.makedirs(delays_folder, exist_ok=True)
     os.makedirs(results_folder, exist_ok=True)
+    os.makedirs(avg_results_folder, exist_ok=True)
     writeResultToFile(logs_folder, delays_folder ,results_folder, indicators, scenario)
 
     # 创建一个空的DataFrame来存储所有实验数据
@@ -107,17 +122,19 @@ def resultAndPlot(scenario:str, indicators:list, index_label):
     plt.savefig(figures_folder+".png")
 
 
-STRATEGY_VALUES =['vndn', 'dasb', 'lisic',  'mupf','prfs', 'mine']
+STRATEGY_VALUES =['vndn', 'dasb', 'lisic', 'difs', 'prfs', 'mine']
 RESULTS_VALUES = ['FIP', 'FDP', 'ISD' , 'ISR', 'HIR', 'HC']
 RATE = 10.0
 TIME = 20.0
 nums =  [num for num in range(40, 161, 20)]
 pairs = [x for x in range(1, 11)]
 popularitys = [round(0.5 + i*0.1,1) for i in range(11)]
-
+speeds = [x for x in range(80, 121, 10)]
 resultAndPlot("1_Num", nums, "Number of Nodes")
 print("场景1批处理任务完成。")
 resultAndPlot("2_cpPairs", pairs, "Number of Pairs")
 print("场景2批处理任务完成。")
 resultAndPlot("3_Popularity", popularitys, "Popularity")
 print("场景3批处理任务完成。")
+resultAndPlot("4_Speed", speeds, "MaxSpeed")
+print("场景4批处理任务完成。")
