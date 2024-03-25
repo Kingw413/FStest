@@ -148,15 +148,16 @@ namespace ns3
 std::vector<int> parseList(const std::string &str)
 {
 	std::vector<int> result;
-	std::istringstream ss(str.substr(1, str.size() - 2)); // 去掉首尾的方括号
-	std::string token;
-	while (std::getline(ss, token, ','))
+	std::istringstream ss(str); // 去掉首尾的方括号
+	char delimiter;
+	int number;
+	while (ss >> number)
 	{
-		result.push_back(std::stoi(token));
+		result.push_back(number);
+		ss >> delimiter; // 读取逗号
 	}
 	return result;
 }
-
 int main(int argc, char *argv[])
 {
 	// 创建命令行对象
