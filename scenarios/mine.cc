@@ -29,6 +29,7 @@
 #include "ns3/ndnSIM/NFD/daemon/face/face-common.hpp"
 #include "ns3/ndnSIM/apps/ndn-producer.hpp"
 #include "ns3/ndnSIM/helper/ndn-link-control-helper.hpp"
+#include "ns3/ndnSIM/helper/ndn-global-routing-helper.hpp"
 #include "ns3/ndnSIM/model/ndn-l3-protocol.hpp"
 #include "ns3/ndnSIM/model/ndn-common.hpp"
 #include "ns3/ndnSIM/utils/tracers/ndn-app-delay-tracer.hpp"
@@ -76,7 +77,6 @@ namespace ns3
 										   "ControlMode", StringValue(phyMode));
 
 		NetDeviceContainer devices = wifi80211p.Install(wifiPhy, wifi80211pMac, nodes);
-std::cout<<MobilityTrace<<endl;
 		Ns2MobilityHelper ns2Mobiity = Ns2MobilityHelper(MobilityTrace);
 		ns2Mobiity.Install();
 
@@ -89,7 +89,6 @@ std::cout<<MobilityTrace<<endl;
 
 		ndnHelper.setCsSize(20);
 		ndnHelper.InstallAll();
-		std::cout << "Install stack\n";
 
 		ndn::StrategyChoiceHelper::InstallAll("/", "/localhost/nfd/strategy/MINE/%FD%01");
 
@@ -120,9 +119,19 @@ std::cout<<MobilityTrace<<endl;
 			producerContainer.Add(nodes[id]);
 		}
 		producer.Install(producerContainer);
-		std::cout << "Install " << consumerContainer.GetN() << " consumers"
-				  << " and " << producerContainer.GetN() << " producers"
-				  << std::endl;
+
+		std::cout << "Trace=" << MobilityTrace << ", Num=" << N << std::endl;
+		std::cout << "Install " << consumerContainer.GetN() << " consumers on Node=";
+		for (auto &consumer : consumerContainer)
+		{
+			std::cout << consumer->GetId() << ", ";
+		}
+		std::cout << " and " << producerContainer.GetN() << " producers on Node=";
+		for (auto &producer : producerContainer)
+		{
+			std::cout << producer->GetId() << ", ";
+		}
+		std::cout << std::endl;
 
 		ndn::AppDelayTracer::Install(consumerContainer, DelayTrace);
 		// ndn::CsTracer::InstallAll("results/cs_prfs.log", MilliSeconds(1000));
@@ -148,7 +157,8 @@ std::vector<int> parseList(const std::string &str)
 	return result;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
 	// 创建命令行对象
 	ns3::CommandLine cmd;
 	int num;

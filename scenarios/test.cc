@@ -1,11 +1,8 @@
 #include "ns3/config.h"
 #include "ns3/log.h"
 #include "ns3/command-line.h"
-
 #include "annotated-topology-reader-m.hpp"
 #include "generic-link-service-m.hpp"
-
-#include "ns3/constant-velocity-mobility-model.h"
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
 #include "ns3/node.h"
@@ -92,7 +89,7 @@ namespace ns3
 		ndnHelper.InstallAll();
 		std::cout << "Install stack\n";
 
-		ndn::StrategyChoiceHelper::InstallAll("/", "/localhost/nfd/strategy/MUPF/%FD%01");
+		ndn::StrategyChoiceHelper::InstallAll("/", "/localhost/nfd/strategy/MINE/%FD%01");
 
 		// Installing Consumer
 		// ndn::AppHelper consumerHelper("ns3::ndn::ConsumerCbr");
@@ -120,6 +117,7 @@ namespace ns3
 			producerContainer.Add(nodes[id]);
 		}
 		producer.Install(producerContainer);
+		
 		std::cout << "Install "<<consumerContainer.GetN()<<" consumers on Node=";
 		for (auto& consumer : consumerContainer) {
 			std::cout<< consumer->GetId()<<", ";

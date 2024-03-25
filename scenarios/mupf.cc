@@ -77,7 +77,6 @@ namespace ns3
 										   "ControlMode", StringValue(phyMode));
 
 		NetDeviceContainer devices = wifi80211p.Install(wifiPhy, wifi80211pMac, nodes);
-
 		Ns2MobilityHelper ns2Mobiity = Ns2MobilityHelper(MobilityTrace);
 		ns2Mobiity.Install();
 
@@ -90,7 +89,6 @@ namespace ns3
 
 		ndnHelper.setCsSize(20);
 		ndnHelper.InstallAll();
-		std::cout << "Install stack\n";
 
 		ndn::StrategyChoiceHelper::InstallAll("/", "/localhost/nfd/strategy/MUPF/%FD%01");
 
@@ -121,7 +119,8 @@ namespace ns3
 			producerContainer.Add(nodes[id]);
 		}
 		producer.Install(producerContainer);
-		std::cout<<"Trace="<<MobilityTrace<<", Num="<<N<<std::endl;
+
+		std::cout << "Trace=" << MobilityTrace << ", Num=" << N << std::endl;
 		std::cout << "Install " << consumerContainer.GetN() << " consumers on Node=";
 		for (auto &consumer : consumerContainer)
 		{
@@ -135,7 +134,7 @@ namespace ns3
 		std::cout << std::endl;
 
 		ndn::AppDelayTracer::Install(consumerContainer, DelayTrace);
-		// ndn::CsTracer::InstallAll("test/test_cs.log");
+		// ndn::CsTracer::InstallAll("results/cs_prfs.log", MilliSeconds(1000));
 
 		Simulator::Stop(Seconds(Time));
 		Simulator::Run();

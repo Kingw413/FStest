@@ -122,13 +122,13 @@ def resultAndPlot(scenario:str, indicators:list, index_label):
     plt.savefig(figures_folder+".png")
 
 
-STRATEGY_VALUES =['vndn', 'dasb', 'lisic', 'difs', 'prfs', 'mine']
+STRATEGY_VALUES =['vndn', 'dasb', 'lisic', 'prfs', 'mine']
 RESULTS_VALUES = ['FIP', 'FDP', 'ISD' , 'ISR', 'HIR', 'HC']
 RATE = 10.0
 TIME = 20.0
 nums =  [num for num in range(40, 161, 20)]
 pairs = [x for x in range(1, 11)]
-popularitys = [round(0.5 + i*0.1,1) for i in range(11)]
+popularitys = [round(0.2+ i*0.2,1) for i in range(7)]
 speeds = [x for x in range(80, 121, 10)]
 resultAndPlot("1_Num", nums, "Number of Nodes")
 print("场景1批处理任务完成。")

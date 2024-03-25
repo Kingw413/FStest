@@ -53,9 +53,11 @@ def runScenario(scenario: str, indicators: list):
             trace = "mobility-traces/1_Num/n100.tcl"
             num = 101
             candidate_consumers = [x for x in range(1, 100)]
-            candidate_producers = [x for x in range(1, 100) if x not in candidate_consumers]
             consumers = [0] + list(np.random.choice(candidate_consumers, indicator-1))
+            candidate_producers = [x for x in range(1, 100) if x not in consumers]
             producers = [100] + list(np.random.choice(candidate_producers, indicator-1))
+            consumers = ','.join(map(str, consumers))
+            producers = ','.join(map(str, producers))
             popularity = 0.7
         elif (scenario == "3_Popularity"):
             trace = "mobility-traces/1_Num/n100.tcl"
@@ -71,20 +73,19 @@ def runScenario(scenario: str, indicators: list):
             popularity = 0.7
         run(trace, logfile_folder, delayfile_folder, num, consumers, producers, popularity)
 
-STRATEGY_VALUES =['vndn', 'dasb', 'lisic', 'difs', 'prfs', 'mine']
-# STRATEGY_VALUES =['difs']
+STRATEGY_VALUES =['vndn', 'dasb', 'lisic', 'prfs', 'mine']
 RESULTS_VALUES = ['FIP', 'FDP', 'ISD' , 'ISR', 'HIR']
 RATE = 10.0
 TIME = 20.0
 nums =  [num for num in range(40, 161, 20)]
 pairs = [x for x in range(1, 11)]
-popularitys = [round(0.5 + i*0.1,1) for i in range(11)]
+popularitys = [round(0.2 + i*0.2,1) for i in range(6)]
 speeds = [x for x in range(80, 121, 10)]
-runScenario("4_Speed", speeds)
-print("场景4批处理任务完成。")
-runScenario("1_Num", nums)
-print("场景1批处理任务完成。")
+# runScenario("1_Num", nums)
+# print("场景1批处理任务完成。")
+# runScenario("3_Popularity", popularitys)
+# print("场景3批处理任务完成。")
+# runScenario("4_Speed", speeds)
+# print("场景4批处理任务完成。")
 runScenario("2_cpPairs", pairs)
 print("场景2批处理任务完成。")
-runScenario("3_Popularity", popularitys)
-print("场景3批处理任务完成。")
