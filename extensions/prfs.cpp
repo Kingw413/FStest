@@ -27,7 +27,7 @@ PRFS::PRFS(Forwarder& forwarder, const Name& name)
     : Strategy(forwarder),
       ProcessNackTraits(this),
       m_Rth(200.0),
-      m_LET_alpha(3.0),
+      m_LET_alpha(1.0),
       m_nodes(ns3::NodeContainer::GetGlobal()),
       m_retxSuppression(RETX_SUPPRESSION_INITIAL,
                         RetxSuppressionExponential::DEFAULT_MULTIPLIER,

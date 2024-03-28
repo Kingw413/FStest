@@ -25,14 +25,15 @@ def calMetric(logfile: str, delayfile: str, num, rate, time):
     fip = round(fip_num/num, 4) 
     fdp = round(fdp_num/num, 4)
 
-    delay_list= hc_list = []
+    delay_list = [] 
+    hc_list = []
     delays = open(delayfile, 'r').readlines()[1:]
     for line in delays:
         value = line.split("\t")
-        if ( value[4] == "LastDelay"):
+        if ( value[4] == "LastDelay" and value[1] == "0"):
             delay_list.append(float(value[5]))
             hc_list.append(float(value[8]))
-    if (len(delays) == 0 ):
+    if (len(delay_list) == 0 ):
         mean_delay = 0
         mean_hc = 0
         isr = 0
@@ -40,7 +41,7 @@ def calMetric(logfile: str, delayfile: str, num, rate, time):
     else:
         mean_delay = round (sum(delay_list) / len(delay_list), 6)
         mean_hc =round( sum(hc_list) / len(hc_list), 2)
-        isr = round(len(delays)/2/rate/time, 5) 
+        isr = round(len(delay_list)/rate/time, 5) 
         # hir = round( hit_num/(fip_num+hit_num), 4) 
         hir = round((len(delays)/2 - sat_by_pro_num)/ (len(delays)/2), 4)
     return [fip, fdp, mean_delay, isr, hir, mean_hc]
@@ -126,15 +127,15 @@ STRATEGY_VALUES =['vndn', 'dasb', 'lisic', 'prfs', 'mine']
 RESULTS_VALUES = ['FIP', 'FDP', 'ISD' , 'ISR', 'HIR', 'HC']
 RATE = 10.0
 TIME = 20.0
-nums =  [num for num in range(40, 161, 20)]
+nums =  [num for num in range(40, 121, 10)]
 pairs = [x for x in range(1, 11)]
 popularitys = [round(0.2+ i*0.2,1) for i in range(7)]
 speeds = [x for x in range(80, 121, 10)]
 resultAndPlot("1_Num", nums, "Number of Nodes")
 print("场景1批处理任务完成。")
-resultAndPlot("2_cpPairs", pairs, "Number of Pairs")
-print("场景2批处理任务完成。")
-resultAndPlot("3_Popularity", popularitys, "Popularity")
-print("场景3批处理任务完成。")
-resultAndPlot("4_Speed", speeds, "MaxSpeed")
-print("场景4批处理任务完成。")
+# resultAndPlot("2_cpPairs", pairs, "Number of Pairs")
+# print("场景2批处理任务完成。")
+# resultAndPlot("3_Popularity", popularitys, "Popularity")
+# print("场景3批处理任务完成。")
+# resultAndPlot("4_Speed", speeds, "MaxSpeed")
+# print("场景4批处理任务完成。")

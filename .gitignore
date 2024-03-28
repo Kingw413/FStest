@@ -9,7 +9,7 @@ build/
 *.log
 *.pcap
 *.tcl
-# *.csv
+*.csv
 # *.png
 .vscode/
 logs/
