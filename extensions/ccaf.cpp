@@ -23,6 +23,8 @@ namespace nfd {
 
             const double CCAF::Rth(200.0);
             const double CCAF::T(1.0);
+            const int CCAF::CONTENT_NUM(50);
+            const int CCAF::CACHE_SIZE(20);
 
             const time::milliseconds CCAF::RETX_SUPPRESSION_INITIAL(10);
             const time::milliseconds CCAF::RETX_SUPPRESSION_MAX(250);
@@ -410,11 +412,38 @@ namespace nfd {
 
             void CCAF::distributeCLT() {
                 m_distributed_CLT = m_CLT;
+                sort(m_CLT.begin(), m_CLT.end(), [&](const auto& a, const auto& b) { return a.second.lastTime > b.second.lastTime; });
                 ns3::Simulator::Schedule(ns3::Seconds(T), &CCAF::distributeCLT, this);
             }
 
-            double CCAF::cachePrediction() {
-
+            double CCAF::cachePrediction(ns3::Ptr<ns3::Node> node, ndn::Name name, double time) {
+                ns3::Ptr<ns3::ndn::L3Protocol> ndn = node->GetObject<ns3::ndn::L3Protocol>();
+                ndn::Name prefix("/ustc");
+                nfd::fw::Strategy& strategy = ndn->getForwarder()->getStrategyChoice().findEffectiveStrategy(prefix);
+                nfd::fw::ccaf::CCAF& CCAF_strategy = dynamic_cast<nfd::fw::ccaf::CCAF&>(strategy);
+                auto clt = CCAF_strategy.getCLT();
+                auto it = std::find(clt.begin(), clt.end(), [&](const auto & entry) { return entry.first == name; });
+                int order = std::distance(clt.begin(), it)+1;
+                double prob;
+                double rate = it->second.rate;
+                double rate_less = 0;
+                double tau = time - int(time / T)*T;
+                double mu = 0.0, sigma = 0.0;
+                if (order <= CACHE_SIZE) {
+                    for (int i=order; i<clt.size(); i++) {
+                        mu += exp(-clt[i].second.rate * tau);
+                        sigma += exp(-clt[i].second.rate * tau) * (1 - exp(-clt[i].second.rate * tau));
+                    }
+                    prob = 0.5*erfc((CONTENT_NUM-CACHE_SIZE-mu) / sqrt(2) / sigma);
+                }
+                else{
+                    double sum_rate = 0;
+                    for (auto p : clt) {
+                        sum_rate += p.second.rate;
+                    }
+                    prob = exp(-sum_rate*tau) * (exp(rate*tau)-1);
+                }
+                return prob;
             }
 
         }  // namespace ccaf

@@ -114,14 +114,16 @@ namespace nfd {
                 void
                     distributeCLT();
                 
-                std::vector<std::pair<ndn::Name, CLT>>
+                std::vector<std::pair<ndn::Name, CLT>>&
                     getCLT() { return m_distributed_CLT; };
 
-                double cachePrediction();
+                double cachePrediction(ns3::Ptr<ns3::Node> node, ndn::Name name, double time);
 
             private:
                 static const double Rth;
                 static const double T;
+                static const int CONTENT_NUM;
+                static const int CACHE_SIZE;
 
                 ns3::NodeContainer m_nodes;
                 std::vector<CCAF::neighborTableEntry> m_NT;
