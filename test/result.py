@@ -46,7 +46,13 @@ def calMetric(logfile: str, delayfile: str, num, rate, time):
         hir = round((len(delays)/2 - sat_by_pro_num)/ (len(delays)/2), 4)
     return [fip, fdp, mean_delay, isr, hir, mean_hc]
 
-def writeResultToFile(logs_folder:str, delays_folder:str, results_folder: str, indicators, scenario:str):
+def writeResultToFile(scenario:str, indicators:list):
+    logs_folder =  'test/logs/' + scenario
+    delays_folder =  'test/logs_delay/' +scenario
+    results_folder =  'test/logs_results/' +scenario
+    os.makedirs(logs_folder, exist_ok=True)
+    os.makedirs(delays_folder, exist_ok=True)
+    os.makedirs(results_folder, exist_ok=True)
     for indicator in indicators:
         resultfile = results_folder +"/" + str(indicator) + ".csv"
         if (os.path.exists(resultfile)):
@@ -83,16 +89,16 @@ def writeResultToFile(logs_folder:str, delays_folder:str, results_folder: str, i
             df.to_csv(resultfile)
 
 def resultAndPlot(scenario:str, indicators:list, index_label):
-    logs_folder =  'test/logs/' + scenario
-    delays_folder =  'test/logs_delay/' +scenario
+    # logs_folder =  'test/logs/' + scenario
+    # delays_folder =  'test/logs_delay/' +scenario
     results_folder =  'test/logs_results/' +scenario
     avg_results_folder =  'test/results/' +scenario
     figures_folder =  'test/figures/' + str(scenario) 
-    os.makedirs(logs_folder, exist_ok=True)
-    os.makedirs(delays_folder, exist_ok=True)
-    os.makedirs(results_folder, exist_ok=True)
+    # os.makedirs(logs_folder, exist_ok=True)
+    # os.makedirs(delays_folder, exist_ok=True)
+    # os.makedirs(results_folder, exist_ok=True)
     os.makedirs(avg_results_folder, exist_ok=True)
-    writeResultToFile(logs_folder, delays_folder ,results_folder, indicators, scenario)
+    writeResultToFile(scenario, indicators)
 
     # 创建一个空的DataFrame来存储所有实验数据
     all_data = pd.DataFrame()
@@ -127,7 +133,7 @@ STRATEGY_VALUES =['vndn', 'dasb', 'lisic', 'prfs', 'mine']
 RESULTS_VALUES = ['FIP', 'FDP', 'ISD' , 'ISR', 'HIR', 'HC']
 RATE = 10.0
 TIME = 20.0
-nums =  [num for num in range(40, 121, 10)]
+nums =  [num for num in range(40, 201, 20)]
 pairs = [x for x in range(1, 11)]
 popularitys = [round(0.2+ i*0.2,1) for i in range(7)]
 speeds = [x for x in range(80, 121, 10)]

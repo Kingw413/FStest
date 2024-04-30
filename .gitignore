@@ -10,7 +10,7 @@ build/
 *.pcap
 *.tcl
 *.csv
-# *.png
+*.png
 .vscode/
 logs/
 logs_delay/
