@@ -170,6 +170,7 @@ namespace nfd {
                     auto seconds = time::duration_cast<time::seconds>(currentTime.time_since_epoch()).count();
                     double time = static_cast<double>(seconds);
                     double prob = cachePrediction(node, interest.getName(), time);
+                    // double prob = 0.9;
 
                     bool isCached = false;
                     ns3::Ptr<ns3::ndn::L3Protocol> ndn = node->GetObject<ns3::ndn::L3Protocol>();
@@ -403,9 +404,9 @@ namespace nfd {
             }
 
             void CCAF::updateCLT(ndn::Name name, double time) {
-                auto it = find_if(m_CLT.begin(), m_CLT.end(), [&](auto& entry) {return entry.first == name}); 
+                auto it = find_if(m_CLT.begin(), m_CLT.end(), [&](auto& entry) { return entry.first == name; }); 
                 if (it == m_CLT.end()) {
-                    CCAF::CLT entry{1, time, 1/time, 1/m_ReqNums};
+                    CCAF::CLT entry{1, time, 1.0/time, 1.0/m_ReqNums};
                     std::pair<ndn::Name, CCAF::CLT> pairs(name, entry);
                     m_CLT.push_back(pairs);
                 }
@@ -420,29 +421,39 @@ namespace nfd {
 
             void CCAF::distributeCLT() {
                 m_distributed_CLT = m_CLT;
-                sort(m_CLT.begin(), m_CLT.end(), [&](const auto& a, const auto& b) { return a.second.lastTime > b.second.lastTime; });
+                sort(m_distributed_CLT.begin(), m_distributed_CLT.end(), [&](const auto& a, const auto& b) { return a.second.lastTime > b.second.lastTime; });
                 ns3::Simulator::Schedule(ns3::Seconds(T), &CCAF::distributeCLT, this);
             }
 
-            double CCAF::cachePrediction(ns3::Ptr<ns3::Node> node, ndn::Name name, double time) {
+            double CCAF::cachePrediction(ns3::Ptr<ns3::Node> node, const ndn::Name name, double time) {
+                if (time < T) { return 0.0; }
                 ns3::Ptr<ns3::ndn::L3Protocol> ndn = node->GetObject<ns3::ndn::L3Protocol>();
                 ndn::Name prefix("/ustc");
+                cout<<"predict node="<<node->GetId()<<endl;
                 nfd::fw::Strategy& strategy = ndn->getForwarder()->getStrategyChoice().findEffectiveStrategy(prefix);
+                cout<<strategy.getInstanceName()<<endl;
                 nfd::fw::ccaf::CCAF& CCAF_strategy = dynamic_cast<nfd::fw::ccaf::CCAF&>(strategy);
                 auto clt = CCAF_strategy.getCLT();
-                auto it = std::find(clt.begin(), clt.end(), [&](const auto & entry) { return entry.first == name; });
+                cout<<"get clt"<<endl;
+                auto it = std::find_if(clt.begin(), clt.end(), [&](auto entry) { return entry.first == name; });
+                if (it == clt.end()) { return 0.0; }
+                cout<<"find entry"<<endl;
                 int order = std::distance(clt.begin(), it)+1;
                 double prob;
+                cout<<"order="<<order<<endl;
                 double rate = it->second.rate;
                 double rate_less = 0;
                 double tau = time - int(time / T)*T;
+                cout<<"rate="<<rate<<", tau="<<tau<<endl;
                 double mu = 0.0, sigma = 0.0;
                 if (order <= CACHE_SIZE) {
                     for (int i=order; i<clt.size(); i++) {
                         mu += exp(-clt[i].second.rate * tau);
                         sigma += exp(-clt[i].second.rate * tau) * (1 - exp(-clt[i].second.rate * tau));
                     }
+                    cout<<"mu="<<mu<<", sigma="<<sigma<<endl;
                     prob = 0.5*erfc((CONTENT_NUM-CACHE_SIZE-mu) / sqrt(2) / sigma);
+                    cout<<"case 1, prob="<<prob<<endl;
                 }
                 else{
                     double sum_rate = 0;
@@ -450,6 +461,7 @@ namespace nfd {
                         sum_rate += p.second.rate;
                     }
                     prob = exp(-sum_rate*tau) * (exp(rate*tau)-1);
+                    cout << "case 2, prob=" << prob << endl;
                 }
                 return prob;
             }

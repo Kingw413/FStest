@@ -109,7 +109,7 @@ namespace nfd {
                     getNode(CCAF& local_strategy);
 
                 void
-                    updateCLT(ndn::Name name, double time);
+                    updateCLT(const ndn::Name name, double time);
                 
                 void
                     distributeCLT();
