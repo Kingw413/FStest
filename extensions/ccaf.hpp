@@ -121,6 +121,7 @@ namespace nfd {
 
             private:
                 static const double Rth;
+                static const double Pth;
                 static const double T;
                 static const int CONTENT_NUM;
                 static const int CACHE_SIZE;

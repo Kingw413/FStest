@@ -22,6 +22,7 @@ namespace nfd {
             NFD_REGISTER_STRATEGY(CCAF);
 
             const double CCAF::Rth(200.0);
+            const double CCAF::Pth(0.8);
             const double CCAF::T(1.0);
             const int CCAF::CONTENT_NUM(50);
             const int CCAF::CACHE_SIZE(20);
@@ -162,30 +163,37 @@ namespace nfd {
                 for (auto& node : m_nodes) {
                     if (isProducer(node)) {
                         sources.emplace(node);
+                        continue;
                     }
+
+                    auto currentTime = ndn::time::steady_clock::now();
+                    auto seconds = time::duration_cast<time::seconds>(currentTime.time_since_epoch()).count();
+                    double time = static_cast<double>(seconds);
+                    double prob = cachePrediction(node, interest.getName(), time);
+
+                    bool isCached = false;
                     ns3::Ptr<ns3::ndn::L3Protocol> ndn = node->GetObject<ns3::ndn::L3Protocol>();
                     ndn::Name name = interest.getName();
                     nfd::cs::Cs& cs = ndn->getForwarder()->getCs();
                     for (const auto& entry : cs) {
                         if (entry.canSatisfy(interest)) {
-                            std::cout << "Content found in node " << node->GetId() << std::endl;
-                            sources.emplace(node);
+                            // std::cout << "Content found in node " << node->GetId() << std::endl;
+                            // sources.emplace(node);
+                            isCached = true;
                             break;
                         }
                     }
-                    // // 创建回调函数来处理查找结果
-                    // auto hitCallback = [&sources, node](nfd::cs::Table::iterator it)
-                    // {
-                    //     // 处理找到内容的情况
-                    //     std::cout << "Content found in CS!" << std::endl;
-                    //     sources.emplace(node);
-                    // };
-                    // auto missCallback = []()
-                    // {
-                    //     // 处理未找到内容的情况
-                    //     std::cout << "Content not found in CS." << std::endl;
-                    // };
-                    // cs.find(interest, hitCallback, missCallback);
+
+                    if (prob > Pth) {
+                        sources.emplace(node);
+                    }
+
+                    if ( (isCached && prob>Pth) || (!isCached && prob<Pth) ) {
+                        cout<<"Cache Prediction True"<<endl;
+                    }
+                    else {
+                        cout<<"Cache Prediction False"<<endl;
+                    }
                 }
                 return sources;
             }
