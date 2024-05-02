@@ -23,7 +23,7 @@ namespace nfd {
 
             const double CCAF::Rth(200.0);
             const double CCAF::Pth(0.8);
-            const double CCAF::T(1.0);
+			const double CCAF::T(1.0);
             const int CCAF::CONTENT_NUM(50);
             const int CCAF::CACHE_SIZE(20);
 
@@ -80,9 +80,10 @@ namespace nfd {
                 namespaceInfo.extendFaceInfoLifetime(faceInfo, egress.face.getId());
                 ++faceInfo.m_counters.nOutInterests;
 
+                ++m_ReqNums;
                 auto currentTime = ndn::time::steady_clock::now();
-                auto seconds = time::duration_cast<time::seconds>(currentTime.time_since_epoch()).count();
-                double doubleTime = static_cast<double>(seconds);
+                auto seconds = time::duration_cast<time::milliseconds>(currentTime.time_since_epoch()).count();
+                double doubleTime = static_cast<double>(seconds)/1000.0;
                 this->updateCLT(interest.getName(), doubleTime);
             }
 
@@ -167,10 +168,9 @@ namespace nfd {
                     }
 
                     auto currentTime = ndn::time::steady_clock::now();
-                    auto seconds = time::duration_cast<time::seconds>(currentTime.time_since_epoch()).count();
-                    double time = static_cast<double>(seconds);
+                    auto seconds = time::duration_cast<time::milliseconds>(currentTime.time_since_epoch()).count();
+                    double time = static_cast<double>(seconds) / 1000.0;
                     double prob = cachePrediction(node, interest.getName(), time);
-                    // double prob = 0.9;
 
                     bool isCached = false;
                     ns3::Ptr<ns3::ndn::L3Protocol> ndn = node->GetObject<ns3::ndn::L3Protocol>();
@@ -409,13 +409,15 @@ namespace nfd {
                     CCAF::CLT entry{1, time, 1.0/time, 1.0/m_ReqNums};
                     std::pair<ndn::Name, CCAF::CLT> pairs(name, entry);
                     m_CLT.push_back(pairs);
+                    // cout<<"Add new CLT: name="<<name<<", lasttime="<<time<<", lambda="<<1.0/time<<", pop="<<1.0/m_ReqNums<<endl;
                 }
                 else {
                     CCAF::CLT& clt = it->second;
                     clt.lastTime = time;
                     ++clt.reqNums;
-                    clt.popularity = m_ReqNums == 0 ? 0 : clt.reqNums / m_ReqNums;
+                    clt.popularity = m_ReqNums == 0 ? 0 : double(clt.reqNums)/ double(m_ReqNums);
                     clt.rate = time>0?  clt.reqNums / time : 0;
+                    // cout << "Update CLT: name=" << it->first << ", lasttime=" << it->second.lastTime << ", lambda=" << it->second.rate <<", reqNums="<<clt.reqNums<<", sumNums="<<m_ReqNums <<", pop=" <<it->second.popularity << endl;
                 }
             }
 
@@ -429,29 +431,24 @@ namespace nfd {
                 if (time < T) { return 0.0; }
                 ns3::Ptr<ns3::ndn::L3Protocol> ndn = node->GetObject<ns3::ndn::L3Protocol>();
                 ndn::Name prefix("/ustc");
-                cout<<"predict node="<<node->GetId()<<endl;
+                // cout<<"predict node="<<node->GetId()<<endl;
                 nfd::fw::Strategy& strategy = ndn->getForwarder()->getStrategyChoice().findEffectiveStrategy(prefix);
-                cout<<strategy.getInstanceName()<<endl;
                 nfd::fw::ccaf::CCAF& CCAF_strategy = dynamic_cast<nfd::fw::ccaf::CCAF&>(strategy);
                 auto clt = CCAF_strategy.getCLT();
-                cout<<"get clt"<<endl;
                 auto it = std::find_if(clt.begin(), clt.end(), [&](auto entry) { return entry.first == name; });
                 if (it == clt.end()) { return 0.0; }
-                cout<<"find entry"<<endl;
                 int order = std::distance(clt.begin(), it)+1;
                 double prob;
-                cout<<"order="<<order<<endl;
                 double rate = it->second.rate;
                 double rate_less = 0;
                 double tau = time - int(time / T)*T;
-                cout<<"rate="<<rate<<", tau="<<tau<<endl;
                 double mu = 0.0, sigma = 0.0;
                 if (order <= CACHE_SIZE) {
-                    for (int i=order; i<clt.size(); i++) {
-                        mu += exp(-clt[i].second.rate * tau);
-                        sigma += exp(-clt[i].second.rate * tau) * (1 - exp(-clt[i].second.rate * tau));
+                    for (int i=order; i<CONTENT_NUM; i++) {
+                        mu += i<CACHE_SIZE? exp(-clt[i].second.rate * tau) : 1;
+                        sigma += i < CACHE_SIZE ? exp(-clt[i].second.rate * tau) * (1 - exp(-clt[i].second.rate * tau)) : 0;
                     }
-                    cout<<"mu="<<mu<<", sigma="<<sigma<<endl;
+                    cout << "order=" << order <<", rate=" << rate << ", tau=" << tau << ", mu=" << mu << ", sigma=" << sigma << endl;
                     prob = 0.5*erfc((CONTENT_NUM-CACHE_SIZE-mu) / sqrt(2) / sigma);
                     cout<<"case 1, prob="<<prob<<endl;
                 }

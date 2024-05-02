@@ -2,6 +2,8 @@ import os
 import pandas as pd
 import numpy as np
 
+
+
 def run(trace, logfile_folder, delayfile_folder, num, consumers, producers, popularity):
     for strategy in STRATEGY_VALUES:
         """         
@@ -83,11 +85,36 @@ nums =  [num for num in range(40, 201, 10)]
 pairs = [x for x in range(1, 11)]
 popularitys = [round(0.2 + i*0.2,1) for i in range(6)]
 speeds = [x for x in range(80, 121, 10)]
-runScenario("1_Num", nums)
-print("场景1批处理任务完成。")
+times = [x for x in range(1, 6, 1)]
+
+# runScenario("1_Num", nums)
+# print("场景1批处理任务完成。")
 # runScenario("3_Popularity", popularitys)
 # print("场景3批处理任务完成。")
 # runScenario("4_Speed", speeds)
 # print("场景4批处理任务完成。")
 # runScenario("2_cpPairs", pairs)
 # print("场景2批处理任务完成。")
+
+def modify_cpp_file(file_path, line_number, time):
+    # 读取cpp文件内容
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+
+    # 修改指定行的内容
+    if 0 < line_number <= len(lines):
+        lines[line_number - 1] = f'\t\t\tconst double CCAF::T({time}.0);' + '\n'
+
+        # 将修改后的内容写回cpp文件
+        with open(file_path, 'w') as file:
+            file.writelines(lines)
+        print(f"Line {line_number} in {file_path} has been modified.")
+    else:
+        print(f"Line number {line_number} is out of range.")
+
+for time in range(1, 6, 1):
+    modify_cpp_file('extensions/ccaf.cpp', 26, time)
+    logfile = os.path.join('test/logs/5_Time', f'{time}.log')
+    delayfile = os.path.join('test/logs_delay/5_Time', f'{time}.log')
+    command = f'NS_LOG=ndn-cxx.nfd.CCAF:ndn.Producer ./waf --run "ccaf --num=101 --consumers=0 --producers=100 --popularity=0.7 --rate=10.0 --time=20.0 --trace=mobility-traces/1_Num/n100.tcl --delay_log={delayfile}">{logfile} 2>&1'
+    os.system(command)
