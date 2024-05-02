@@ -1,6 +1,6 @@
 import os
-import re
 import pandas as pd
+import csv
 import matplotlib 
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -58,20 +58,6 @@ def writeResultToFile(scenario:str, indicators:list):
         if (os.path.exists(resultfile)):
             os.remove(resultfile)
         for strategy in STRATEGY_VALUES:
-            '''
-            if (strategy == "mupf"):
-                parts = logs_folder.split('/')
-                parts.pop(0)
-                temp_logfile_folder = os.path.join(*parts)
-                parts2 = delays_folder.split('/')
-                parts2.pop(0)
-                temp_delayfile_folder = os.path.join(*parts2)
-                logfile = temp_logfile_folder +"/" + str(indicator) + "/" + strategy +".log"
-                delayfile = temp_delayfile_folder +"/" + str(indicator) + "/" + strategy +".log"
-            else:      
-                logfile = logs_folder +"/" + str(indicator) + "/" + strategy +".log"
-                delayfile = delays_folder +"/" + str(indicator) + "/" + strategy +".log"
-            '''
             logfile = logs_folder +"/" + str(indicator) + "/" + strategy +".log"
             delayfile = delays_folder +"/" + str(indicator) + "/" + strategy +".log"
             if scenario == "1_Num":
@@ -89,14 +75,9 @@ def writeResultToFile(scenario:str, indicators:list):
             df.to_csv(resultfile)
 
 def resultAndPlot(scenario:str, indicators:list, index_label):
-    # logs_folder =  'test/logs/' + scenario
-    # delays_folder =  'test/logs_delay/' +scenario
     results_folder =  'test/logs_results/' +scenario
     avg_results_folder =  'test/results/' +scenario
     figures_folder =  'test/figures/' + str(scenario) 
-    # os.makedirs(logs_folder, exist_ok=True)
-    # os.makedirs(delays_folder, exist_ok=True)
-    # os.makedirs(results_folder, exist_ok=True)
     os.makedirs(avg_results_folder, exist_ok=True)
     writeResultToFile(scenario, indicators)
 
@@ -129,6 +110,43 @@ def resultAndPlot(scenario:str, indicators:list, index_label):
     plt.savefig(figures_folder+".png")
 
 
+def calMetric2(logfile: str): 
+    logs = open(logfile, 'r').readlines()
+    if (logs[-1] != "end"):
+        return [pd.NA]*len(RESULTS_VALUES)
+    true_num=false_num= 0
+    for line in logs:
+        if ("Cache Prediction True" in line):
+            true_num += 1
+        if ("Cache Prediction False" in line):
+            false_num += 1
+    accuracy = round(true_num / (true_num+false_num), 4)
+    return accuracy
+
+def resultAndPlot2(scenario, indicators):
+    x_data=[]
+    y_data=[]
+    for indicator in indicators:
+        logfile = os.path.join(f'test/logs/{scenario}', f'{indicator}.log')
+        accuracy = calMetric2(logfile)
+        print(indicator, accuracy)
+        x_data.append(indicator)
+        y_data.append(accuracy)
+    # 将数据写入CSV文件
+    with open(f'test/results/{scenario}/Accuracy.csv', 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow([scenario, 'Prediction Accuracy'])  # 写入表头
+        for x, y in zip(x_data, y_data):
+            writer.writerow([x, y])  # 写入数据
+
+    plt.plot(x_data, y_data, marker='o', linestyle='-')
+    plt.xlabel(scenario)
+    plt.ylabel('Prediction Accuracy')
+    plt.title(f'Prediction Accuracy vs {scenario}')
+    plt.grid(True)
+    plt.show()
+    plt.savefig(f'test/figures/{scenario}.png')
+
 STRATEGY_VALUES =['vndn', 'dasb', 'lisic', 'prfs', 'mine']
 RESULTS_VALUES = ['FIP', 'FDP', 'ISD' , 'ISR', 'HIR', 'HC']
 RATE = 10.0
@@ -137,11 +155,16 @@ nums =  [num for num in range(40, 201, 20)]
 pairs = [x for x in range(1, 11)]
 popularitys = [round(0.2+ i*0.2,1) for i in range(7)]
 speeds = [x for x in range(80, 121, 10)]
-resultAndPlot("1_Num", nums, "Number of Nodes")
-print("场景1批处理任务完成。")
+# resultAndPlot("1_Num", nums, "Number of Nodes")
+# print("场景1批处理任务完成。")
 # resultAndPlot("2_cpPairs", pairs, "Number of Pairs")
 # print("场景2批处理任务完成。")
 # resultAndPlot("3_Popularity", popularitys, "Popularity")
 # print("场景3批处理任务完成。")
 # resultAndPlot("4_Speed", speeds, "MaxSpeed")
 # print("场景4批处理任务完成。")
+
+times = [round(5.0 - i*0.5, 1) for i in range(10)]
+pth = [round(0.5 + i*0.1, 1) for i in range(5)]
+resultAndPlot2('5_Time', times)
+resultAndPlot2('6_Pth', pth)

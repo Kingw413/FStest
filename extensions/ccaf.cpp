@@ -22,8 +22,8 @@ namespace nfd {
             NFD_REGISTER_STRATEGY(CCAF);
 
             const double CCAF::Rth(200.0);
-            const double CCAF::Pth(0.8);
-			const double CCAF::T(1.0);
+            const double CCAF::Pth(0.85);
+			const double CCAF::T(5.0);
             const int CCAF::CONTENT_NUM(50);
             const int CCAF::CACHE_SIZE(20);
 
@@ -178,8 +178,6 @@ namespace nfd {
                     nfd::cs::Cs& cs = ndn->getForwarder()->getCs();
                     for (const auto& entry : cs) {
                         if (entry.canSatisfy(interest)) {
-                            // std::cout << "Content found in node " << node->GetId() << std::endl;
-                            // sources.emplace(node);
                             isCached = true;
                             break;
                         }
@@ -188,12 +186,13 @@ namespace nfd {
                     if (prob > Pth) {
                         sources.emplace(node);
                     }
-
-                    if ( (isCached && prob>Pth) || (!isCached && prob<Pth) ) {
-                        cout<<"Cache Prediction True"<<endl;
-                    }
-                    else {
-                        cout<<"Cache Prediction False"<<endl;
+                    if (time>T) {
+                        if ( (isCached && prob>Pth) || (!isCached && prob<Pth) ) {
+                            cout<<"Cache Prediction True"<<endl;
+                        }
+                        else {
+                            cout<<"Cache Prediction False"<<endl;
+                        }
                     }
                 }
                 return sources;
@@ -431,7 +430,6 @@ namespace nfd {
                 if (time < T) { return 0.0; }
                 ns3::Ptr<ns3::ndn::L3Protocol> ndn = node->GetObject<ns3::ndn::L3Protocol>();
                 ndn::Name prefix("/ustc");
-                // cout<<"predict node="<<node->GetId()<<endl;
                 nfd::fw::Strategy& strategy = ndn->getForwarder()->getStrategyChoice().findEffectiveStrategy(prefix);
                 nfd::fw::ccaf::CCAF& CCAF_strategy = dynamic_cast<nfd::fw::ccaf::CCAF&>(strategy);
                 auto clt = CCAF_strategy.getCLT();
@@ -440,25 +438,28 @@ namespace nfd {
                 int order = std::distance(clt.begin(), it)+1;
                 double prob;
                 double rate = it->second.rate;
-                double rate_less = 0;
                 double tau = time - int(time / T)*T;
                 double mu = 0.0, sigma = 0.0;
                 if (order <= CACHE_SIZE) {
-                    for (int i=order; i<CONTENT_NUM; i++) {
-                        mu += i<CACHE_SIZE? exp(-clt[i].second.rate * tau) : 1;
-                        sigma += i < CACHE_SIZE ? exp(-clt[i].second.rate * tau) * (1 - exp(-clt[i].second.rate * tau)) : 0;
+                    double prob_less = rate*exp(-rate*tau);
+                    for (int i=order; i<std::max(int(clt.size()),CACHE_SIZE); i++) {
+                        mu += i<clt.size()? exp(-clt[i].second.rate * tau) : 1;
+                        sigma += i < clt.size() ? exp(-clt[i].second.rate * tau) * (1 - exp(-clt[i].second.rate * tau)) : 0;
+                        prob_less *= i < clt.size() ? 0.5*clt[i].second.rate*exp(-clt[i].second.rate*tau) : 0;
                     }
-                    cout << "order=" << order <<", rate=" << rate << ", tau=" << tau << ", mu=" << mu << ", sigma=" << sigma << endl;
-                    prob = 0.5*erfc((CONTENT_NUM-CACHE_SIZE-mu) / sqrt(2) / sigma);
-                    cout<<"case 1, prob="<<prob<<endl;
+                    prob = 0.5*erfc((CONTENT_NUM-CACHE_SIZE-mu) / sqrt(2) / sigma)+ prob_less;
+                    cout<< "case 1" << ", mu=" << mu << ", sigma=" << sigma <<", prob_less="<<prob_less<<", prob="<<prob<<endl;
                 }
                 else{
                     double sum_rate = 0;
+                    double prob_less = 1.0;
                     for (auto p : clt) {
                         sum_rate += p.second.rate;
+                        prob_less *= p.second.rate;
                     }
-                    prob = exp(-sum_rate*tau) * (exp(rate*tau)-1);
-                    cout << "case 2, prob=" << prob << endl;
+                    prob_less *= pow(0.5, clt.size())*exp(-sum_rate * tau);
+                    prob = exp(-sum_rate*tau) * (exp(rate*tau)-1) + prob_less;
+                    cout << "case 2"<<", sum_rate="<<sum_rate<<", prob_less="<<prob_less<<", prob=" << prob << endl;
                 }
                 return prob;
             }
