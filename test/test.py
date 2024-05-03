@@ -64,17 +64,29 @@ def modify_cpp_file(file_path, scenario, indicator):
         lines[25] = f'\t\t\tconst double CCAF::T({indicator});' + '\n'
     elif scenario == '6_Pth':   
         lines[24] = f'\t\t\tconst double CCAF::Pth({indicator});' + '\n'
+    elif scenario == '7_CacheSize':
+        lines[27] = f'\t\t\tconst int CCAF::CACHE_SIZE({indicator});' + '\n'
     with open(file_path, 'w') as file:
         file.writelines(lines)
     print(f"{scenario}={indicator} has been modified.")
 
 def runScenario2(scenario : str, indicators : list):
+    logfile_folder =  'test/logs/' + scenario 
+    delayfile_folder =  'test/logs_delay/' +scenario
+    os.makedirs(logfile_folder, exist_ok=True)
+    os.makedirs(delayfile_folder, exist_ok=True)
     for indicator in indicators:
         modify_cpp_file('extensions/ccaf.cpp', scenario, indicator)
-        logfile = os.path.join(f'test/logs/{scenario}', f'{indicator}.log')
-        delayfile = os.path.join(f'test/logs_delay/{scenario}', f'{indicator}.log')
-        command = f'NS_LOG=ndn-cxx.nfd.CCAF:ndn.Producer ./waf --run "ccaf --num=101 --consumers=0 --producers=100 --popularity=0.7 --rate=20.0 --time=20.0 --trace=mobility-traces/1_Num/n100.tcl --delay_log={delayfile}">{logfile} 2>&1'
-        os.system(command)
+        logfile = os.path.join(logfile_folder, f'{indicator}.log')
+        delayfile = os.path.join(delayfile_folder, f'{indicator}.log')
+        if (os.path.exists(logfile) and os.path.exists(delayfile)):
+            continue
+        if scenario == '7_CacheSize':
+            command = f'NS_LOG=ndn-cxx.nfd.CCAF:ndn.Producer ./waf --run "ccaf --num=121 --consumers=0 --producers=120 --popularity=0.7 --rate=20.0 --time=20.0 --trace=mobility-traces/1_Num/n100.tcl --delay_log={delayfile} --size={indicator}">{logfile} 2>&1'
+            os.system(command)
+        else:
+            command = f'NS_LOG=ndn-cxx.nfd.CCAF:ndn.Producer ./waf --run "ccaf --num=121 --consumers=0 --producers=120 --popularity=0.7 --rate=20.0 --time=20.0 --trace=mobility-traces/1_Num/n100.tcl --delay_log={delayfile} --size=20">{logfile} 2>&1'
+            os.system(command)
 
 STRATEGY_VALUES =['vndn', 'dasb', 'lisic', 'prfs', 'mine']
 RESULTS_VALUES = ['FIP', 'FDP', 'ISD' , 'ISR', 'HIR']
@@ -94,9 +106,11 @@ speeds = [x for x in range(80, 121, 10)]
 # runScenario("2_cpPairs", pairs)
 # print("场景2批处理任务完成。")
 
-times = [round(5.0 - i*0.5, 1) for i in range(10)]
-pth = [round(0.5 + i*0.1, 1) for i in range(5)]
-runScenario2("5_Time", times)
+times = [round(5.5 + i*0.5, 1) for i in range(9)]
+pth = [round(0.5 + i*0.05, 2) for i in range(10)]
+size = [x for x in range(10, 51, 5)]
+runScenario2("7_CacheSize", size)
 runScenario2("6_Pth", pth)
+# runScenario2("5_Time", times)
 
 os.system('python test/result.py')

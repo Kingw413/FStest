@@ -41,7 +41,7 @@
 NS_LOG_COMPONENT_DEFINE("WifiSimpleOcb");
 
 namespace ns3 {
-    int main(int num, vector<int> consumers, vector<int> producers, double popularity, double rate, double time, string trace, string delay_log) {
+    int main(int num, vector<int> consumers, vector<int> producers, double popularity, double rate, double time, string trace, string delay_log, int size) {
         uint32_t N = num;
         vector<int> ConsumerId = consumers;
         vector<int> ProducerId = producers;
@@ -50,6 +50,8 @@ namespace ns3 {
         double Time = time;
         string MobilityTrace = trace;
         string DelayTrace = delay_log;
+
+        double Size = size;
 
         NodeContainer nodes;
         nodes.Create(N);
@@ -160,6 +162,8 @@ int main(int argc, char* argv[]) {
     double time;
     double popularity;
     string trace, log, delay_log;
+
+    int size;
     // 添加自定义参数
     cmd.AddValue("num", "Description for number of nodes parameter", num);
     cmd.AddValue("consumers", "List of consumer nodes", consumers_list);
@@ -169,6 +173,7 @@ int main(int argc, char* argv[]) {
     cmd.AddValue("time", "Description for request rate  parameter", time);
     cmd.AddValue("trace", "Description for mobility trace  parameter", trace);
     cmd.AddValue("delay_log", "Description for delay log parameter", delay_log);
+    cmd.AddValue("size", "Description for Cache Size", size);
 
     // 解析命令行参数
     cmd.Parse(argc, argv);
@@ -176,5 +181,5 @@ int main(int argc, char* argv[]) {
     std::vector<int> consumers = parseList(consumers_list);
     std::vector<int> producers = parseList(producers_list);
 
-    return ns3::main(num, consumers, producers, popularity, rate, time, trace, delay_log);
+    return ns3::main(num, consumers, producers, popularity, rate, time, trace, delay_log, size);
 }

@@ -90,7 +90,7 @@ def resultAndPlot(scenario:str, indicators:list, index_label):
         all_data = pd.concat([all_data, csv_data])
     final_results = all_data.groupby(level=0)
 
-    fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(20,10))
+    fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(40,10))
     for (indicator, indicator_data), ax in zip(final_results, axes.flatten()):
         metric_file_name = os.path.join(avg_results_folder, indicator + '.csv')
         print(metric_file_name)
@@ -110,41 +110,61 @@ def resultAndPlot(scenario:str, indicators:list, index_label):
     plt.savefig(figures_folder+".png")
 
 
-def calMetric2(logfile: str): 
+def calMetric2(logfile: str, delayfile : str): 
     logs = open(logfile, 'r').readlines()
     if (logs[-1] != "end"):
         return [pd.NA]*len(RESULTS_VALUES)
     true_num=false_num= 0
+    fip_num = hit_num = sat_by_pro_num = 0
     for line in logs:
         if ("Cache Prediction True" in line):
             true_num += 1
         if ("Cache Prediction False" in line):
             false_num += 1
+        if ("do Send Interest" in line):
+            fip_num += 1
+        if ("afterContentStoreHit" in line):
+            hit_num += 1
+        if ("responding with Data" in line):
+            sat_by_pro_num += 1
+    delays = open(delayfile, 'r').readlines()[1:]
     accuracy = round(true_num / (true_num+false_num), 4)
-    return accuracy
+    isr = round(len(delays)/20/20/2, 4) 
+    hir = round( hit_num/(fip_num+hit_num), 4) 
+    chr = round((len(delays)/2 - sat_by_pro_num)/ (len(delays)/2), 4)
+    return [accuracy, isr, hir, chr]
 
 def resultAndPlot2(scenario, indicators):
-    x_data=[]
-    y_data=[]
+    results_folder =  'test/results/' +scenario
+    os.makedirs(results_folder, exist_ok=True)
+    x_data=[]; accu=[]; isr=[]; hir=[]; chr = []
+    metrics = [accu, isr, hir, chr]
+    plt.figure(figsize=(20, 10))    
     for indicator in indicators:
         logfile = os.path.join(f'test/logs/{scenario}', f'{indicator}.log')
-        accuracy = calMetric2(logfile)
-        print(indicator, accuracy)
-        x_data.append(indicator)
-        y_data.append(accuracy)
-    # 将数据写入CSV文件
-    with open(f'test/results/{scenario}/Accuracy.csv', 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow([scenario, 'Prediction Accuracy'])  # 写入表头
-        for x, y in zip(x_data, y_data):
-            writer.writerow([x, y])  # 写入数据
+        delayfile = os.path.join(f'test/logs_delay/{scenario}', f'{indicator}.log')
+        metric = calMetric2(logfile, delayfile)
+        print(indicator, metric)
 
-    plt.plot(x_data, y_data, marker='o', linestyle='-')
-    plt.xlabel(scenario)
-    plt.ylabel('Prediction Accuracy')
-    plt.title(f'Prediction Accuracy vs {scenario}')
-    plt.grid(True)
-    plt.show()
+        x_data.append(indicator)
+        for i in range(len(metrics)):
+            metrics[i].append(metric[i])
+            # 将数据写入CSV文件
+            labels = ['Accuracy', 'ISR', 'HIR', 'CHR']
+            with open(f'test/results/{scenario}/{labels[i]}.csv', 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                if indicators.index(indicator)==0:
+                    writer.writerow([scenario, labels[i]])  # 写入表头
+                writer.writerow([indicator, metric[i]])  # 写入数据
+
+    for i in range(len(metrics)):
+        plt.subplot(2, 2, i+1)
+        plt.plot(x_data, metrics[i], marker='o', linestyle='-')
+        plt.xticks(x_data)
+        plt.xlabel(scenario)
+        plt.ylabel(labels[i])
+        plt.title(f'{labels[i]} vs {scenario}')
+        plt.grid(True)
     plt.savefig(f'test/figures/{scenario}.png')
 
 STRATEGY_VALUES =['vndn', 'dasb', 'lisic', 'prfs', 'mine']
@@ -164,7 +184,7 @@ speeds = [x for x in range(80, 121, 10)]
 # resultAndPlot("4_Speed", speeds, "MaxSpeed")
 # print("场景4批处理任务完成。")
 
-times = [round(5.0 - i*0.5, 1) for i in range(10)]
-pth = [round(0.5 + i*0.1, 1) for i in range(5)]
+times = [round(0.5 + i*0.5, 1) for i in range(19)]
+pth = [round(0.5 + i*0.05, 2) for i in range(10)]
 resultAndPlot2('5_Time', times)
 resultAndPlot2('6_Pth', pth)
