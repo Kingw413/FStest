@@ -51,7 +51,7 @@ namespace ns3 {
         string MobilityTrace = trace;
         string DelayTrace = delay_log;
 
-        double Size = size;
+        int Size = size;
 
         NodeContainer nodes;
         nodes.Create(N);

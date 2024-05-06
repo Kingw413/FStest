@@ -23,12 +23,12 @@
  * NFD, e.g., in COPYING.md file.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "mine-measurements.hpp"
+#include "opt-measurements.hpp"
 #include "common/global.hpp"
 
 namespace nfd {
 namespace fw {
-namespace mine {
+namespace opt {
 
 const time::nanoseconds FaceInfo::RTT_NO_MEASUREMENT{-1};
 const time::nanoseconds FaceInfo::RTT_TIMEOUT{-2};
@@ -59,36 +59,36 @@ NamespaceInfo::getOrCreateFaceInfo(FaceId faceId)
 void
 NamespaceInfo::extendFaceInfoLifetime(FaceInfo& info, FaceId faceId)
 {
-  info.m_measurementExpiration = getScheduler().schedule(MineMeasurements::MEASUREMENTS_LIFETIME,
+  info.m_measurementExpiration = getScheduler().schedule(OptMeasurements::MEASUREMENTS_LIFETIME,
                                                          [=] { m_fiMap.erase(faceId); });
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-constexpr time::microseconds MineMeasurements::MEASUREMENTS_LIFETIME;
+constexpr time::microseconds OptMeasurements::MEASUREMENTS_LIFETIME;
 
-MineMeasurements::MineMeasurements(MeasurementsAccessor& measurements)
+OptMeasurements::OptMeasurements(MeasurementsAccessor& measurements)
   : m_measurements(measurements)
   , m_rttEstimatorOpts(make_shared<ndn::util::RttEstimator::Options>())
 {
 }
 
 FaceInfo*
-MineMeasurements::getFaceInfo(const fib::Entry& fibEntry, const Interest& interest, FaceId faceId)
+OptMeasurements::getFaceInfo(const fib::Entry& fibEntry, const Interest& interest, FaceId faceId)
 {
   return getOrCreateNamespaceInfo(fibEntry, interest).getFaceInfo(faceId);
 }
 
 FaceInfo&
-MineMeasurements::getOrCreateFaceInfo(const fib::Entry& fibEntry, const Interest& interest,
+OptMeasurements::getOrCreateFaceInfo(const fib::Entry& fibEntry, const Interest& interest,
                                      FaceId faceId)
 {
   return getOrCreateNamespaceInfo(fibEntry, interest).getOrCreateFaceInfo(faceId);
 }
 
 NamespaceInfo*
-MineMeasurements::getNamespaceInfo(const Name& prefix)
+OptMeasurements::getNamespaceInfo(const Name& prefix)
 {
   measurements::Entry* me = m_measurements.findLongestPrefixMatch(prefix);
   if (me == nullptr) {
@@ -104,7 +104,7 @@ MineMeasurements::getNamespaceInfo(const Name& prefix)
 }
 
 NamespaceInfo&
-MineMeasurements::getOrCreateNamespaceInfo(const fib::Entry& fibEntry, const Interest& interest)
+OptMeasurements::getOrCreateNamespaceInfo(const fib::Entry& fibEntry, const Interest& interest)
 {
   measurements::Entry* me = m_measurements.get(fibEntry);
 
@@ -127,11 +127,11 @@ MineMeasurements::getOrCreateNamespaceInfo(const fib::Entry& fibEntry, const Int
 }
 
 void
-MineMeasurements::extendLifetime(measurements::Entry& me)
+OptMeasurements::extendLifetime(measurements::Entry& me)
 {
   m_measurements.extendLifetime(me, MEASUREMENTS_LIFETIME);
 }
 
-} // namespace mine
+} // namespace opt
 } // namespace fw
 } // namespace nfd

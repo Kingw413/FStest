@@ -22,10 +22,10 @@ namespace nfd {
             NFD_REGISTER_STRATEGY(CCAF);
 
             const double CCAF::Rth(200.0);
-			const double CCAF::Pth(0.85);
+			const double CCAF::Pth(0.5);
 			const double CCAF::T(1.0);
             const int CCAF::CONTENT_NUM(50);
-			const int CCAF::CACHE_SIZE(10);
+			const int CCAF::CACHE_SIZE(20);
 
             const time::milliseconds CCAF::RETX_SUPPRESSION_INITIAL(10);
             const time::milliseconds CCAF::RETX_SUPPRESSION_MAX(250);
@@ -188,10 +188,10 @@ namespace nfd {
                     }
                     if (time>T) {
                         if ( (isCached && prob>Pth) || (!isCached && prob<Pth) ) {
-                            cout<<"Cache Prediction True"<<endl;
+                            // cout<<"Cache Prediction True"<<endl;
                         }
                         else {
-                            cout<<"Cache Prediction False"<<endl;
+                            // cout<<"Cache Prediction False"<<endl;
                         }
                     }
                 }

@@ -1,18 +1,18 @@
-#ifndef NFD_DAEMON_FW_MINE_HPP
-#define NFD_DAEMON_FW_MINE_HPP
+#ifndef NFD_DAEMON_FW_OPT_HPP
+#define NFD_DAEMON_FW_OPT_HPP
 
 #include "ns3/ndnSIM/model/ndn-l3-protocol.hpp"
 #include "ns3/ndnSIM/NFD/daemon/fw/strategy.hpp"
 #include "ns3/ndnSIM/NFD/daemon/fw/retx-suppression-exponential.hpp"
-#include "mine-measurements.hpp"
+#include "opt-measurements.hpp"
 #include "ns3/node-container.h"
 #include "ns3/node.h"
 #include "ns3/vector.h"
 namespace nfd {
 namespace fw {
-namespace mine {
+namespace opt {
 
-class MINE : public Strategy
+class OPT : public Strategy
 {
 struct  neighborTableEntry {
 	ns3::Ptr<ns3::Node> node;
@@ -33,7 +33,7 @@ struct FaceStats
 };
 
 public:
-	explicit MINE(Forwarder &forwarder, const Name &name = getStrategyName());
+	explicit OPT(Forwarder &forwarder, const Name &name = getStrategyName());
 
 	static const Name &
 	getStrategyName();
@@ -100,23 +100,23 @@ public:
      * 通过判断this指针与哪个node的strategy指向相同对象，来判别当前的node
     */
     ns3::Ptr<ns3::Node>
-    getNode(MINE& local_strategy);
+    getNode(OPT& local_strategy);
 
 
 private:
 	static const double Rth;
 
 	ns3::NodeContainer m_nodes;
-	std::vector<MINE::neighborTableEntry> m_NT;
-    MineMeasurements m_measurements;
+	std::vector<OPT::neighborTableEntry> m_NT;
+    OptMeasurements m_measurements;
 
 	PUBLIC_WITH_TESTS_ELSE_PRIVATE : static const time::milliseconds RETX_SUPPRESSION_INITIAL;
 	static const time::milliseconds RETX_SUPPRESSION_MAX;
 	RetxSuppressionExponential m_retxSuppression;
 };
 
-} // namespace mine
+} // namespace opt
 } // namespace fw
 } // namespace nfd
 
-#endif // NFD_DAEMON_FW_MINE_HPP
+#endif // NFD_DAEMON_FW_OPT_HPP

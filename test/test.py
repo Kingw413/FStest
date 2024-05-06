@@ -79,22 +79,21 @@ def runScenario2(scenario : str, indicators : list):
         modify_cpp_file('extensions/ccaf.cpp', scenario, indicator)
         logfile = os.path.join(logfile_folder, f'{indicator}.log')
         delayfile = os.path.join(delayfile_folder, f'{indicator}.log')
-        if (os.path.exists(logfile) and os.path.exists(delayfile)):
-            continue
+        # if (os.path.exists(logfile) and os.path.exists(delayfile)):
+        #     continue
         if scenario == '7_CacheSize':
-            command = f'NS_LOG=ndn-cxx.nfd.CCAF:ndn.Producer ./waf --run "ccaf --num=121 --consumers=0 --producers=120 --popularity=0.7 --rate=20.0 --time=20.0 --trace=mobility-traces/1_Num/n100.tcl --delay_log={delayfile} --size={indicator}">{logfile} 2>&1'
+            command = f'NS_LOG=ndn-cxx.nfd.CCAF:ndn.Producer ./waf --run "ccaf --num=121 --consumers=0 --producers=120 --popularity=0.7 --rate=20.0 --time=20.0 --trace=mobility-traces/1_Num/n120.tcl --delay_log={delayfile} --size={indicator}">{logfile} 2>&1'
             os.system(command)
         else:
-            command = f'NS_LOG=ndn-cxx.nfd.CCAF:ndn.Producer ./waf --run "ccaf --num=121 --consumers=0 --producers=120 --popularity=0.7 --rate=20.0 --time=20.0 --trace=mobility-traces/1_Num/n100.tcl --delay_log={delayfile} --size=20">{logfile} 2>&1'
+            command = f'NS_LOG=ndn-cxx.nfd.CCAF:ndn.Producer ./waf --run "ccaf --num=81 --consumers=0 --producers=80 --popularity=0.7 --rate=20.0 --time=20.0 --trace=mobility-traces/1_Num/n80.tcl --delay_log={delayfile} --size=20">{logfile} 2>&1'
             os.system(command)
 
-STRATEGY_VALUES =['vndn', 'dasb', 'lisic', 'prfs', 'mine']
-RESULTS_VALUES = ['FIP', 'FDP', 'ISD' , 'ISR', 'HIR']
+STRATEGY_VALUES =['vndn', 'dasb', 'lisic', 'prfs', 'mine', 'ccaf']
 RATE = 10.0
 TIME = 20.0
 nums =  [num for num in range(40, 201, 10)]
 pairs = [x for x in range(1, 11)]
-popularitys = [round(0.2 + i*0.2,1) for i in range(6)]
+popularitys = [round(0.2 + i*0.1,1) for i in range(14)]
 speeds = [x for x in range(80, 121, 10)]
 
 # runScenario("1_Num", nums)
@@ -107,10 +106,11 @@ speeds = [x for x in range(80, 121, 10)]
 # print("场景2批处理任务完成。")
 
 times = [round(5.5 + i*0.5, 1) for i in range(9)]
-pth = [round(0.5 + i*0.05, 2) for i in range(10)]
+pth =[round(0.5 + i*0.05, 2) for i in range(9)]
+# pth =[round(0.5 + i*0.05, 2) for i in range(9)] + [round(0.9 + i*0.01, 2) for i in range(10)] +[0.85]
 size = [x for x in range(10, 51, 5)]
-runScenario2("7_CacheSize", size)
 runScenario2("6_Pth", pth)
+# runScenario2("7_CacheSize", size)
 # runScenario2("5_Time", times)
 
 os.system('python test/result.py')

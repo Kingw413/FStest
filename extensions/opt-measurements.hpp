@@ -23,8 +23,8 @@
  * NFD, e.g., in COPYING.md file.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef NFD_DAEMON_FW_MINE_MEASUREMENTS_HPP
-#define NFD_DAEMON_FW_MINE_MEASUREMENTS_HPP
+#ifndef NFD_DAEMON_FW_OPT_MEASUREMENTS_HPP
+#define NFD_DAEMON_FW_OPT_MEASUREMENTS_HPP
 
 #include "fw/strategy-info.hpp"
 #include "fw/forwarder-counters.hpp"
@@ -34,7 +34,7 @@
 
 namespace nfd {
 namespace fw {
-namespace mine {
+namespace opt {
 
 /** \brief Strategy information for each face in a namespace
 */
@@ -145,11 +145,11 @@ private:
 
 /** \brief Helper class to retrieve and create strategy measurements
  */
-class MineMeasurements : noncopyable
+class OptMeasurements : noncopyable
 {
 public:
   explicit
-  MineMeasurements(MeasurementsAccessor& measurements);
+  OptMeasurements(MeasurementsAccessor& measurements);
 
   FaceInfo*
   getFaceInfo(const fib::Entry& fibEntry, const Interest& interest, FaceId faceId);
@@ -175,8 +175,8 @@ private:
   shared_ptr<const ndn::util::RttEstimator::Options> m_rttEstimatorOpts;
 };
 
-} // namespace mine
+} // namespace opt
 } // namespace fw
 } // namespace nfd
 
-#endif // NFD_DAEMON_FW_MINE_MEASUREMENTS_HPP
+#endif // NFD_DAEMON_FW_OPT_MEASUREMENTS_HPP

@@ -1,4 +1,4 @@
-#include "mine.hpp"
+#include "opt.hpp"
 #include "common/logger.hpp"
 #include "ndn-wifi-net-device-transport.hpp"
 #include "ns3/mobility-model.h"
@@ -17,16 +17,16 @@
 
 namespace nfd {
 namespace fw {
-namespace mine {
-NFD_LOG_INIT(MINE);
-NFD_REGISTER_STRATEGY(MINE);
+namespace opt {
+NFD_LOG_INIT(OPT);
+NFD_REGISTER_STRATEGY(OPT);
 
-const double MINE::Rth(200.0);
+const double OPT::Rth(200.0);
 
-const time::milliseconds MINE::RETX_SUPPRESSION_INITIAL(10);
-const time::milliseconds MINE::RETX_SUPPRESSION_MAX(250);
+const time::milliseconds OPT::RETX_SUPPRESSION_INITIAL(10);
+const time::milliseconds OPT::RETX_SUPPRESSION_MAX(250);
 
-MINE::MINE(Forwarder& forwarder, const Name& name)
+OPT::OPT(Forwarder& forwarder, const Name& name)
     : Strategy(forwarder),
     m_nodes(ns3::NodeContainer::GetGlobal()),
     m_measurements(getMeasurements()),
@@ -35,22 +35,22 @@ MINE::MINE(Forwarder& forwarder, const Name& name)
                         RETX_SUPPRESSION_MAX) {
     ParsedInstanceName parsed = parseInstanceName(name);
     if (!parsed.parameters.empty()) {
-        NDN_THROW(std::invalid_argument("MINE does not accept parameters"));
+        NDN_THROW(std::invalid_argument("OPT does not accept parameters"));
     }
     if (parsed.version &&
         *parsed.version != getStrategyName()[-1].toVersion()) {
-        NDN_THROW(std::invalid_argument("MINE does not support version " +
+        NDN_THROW(std::invalid_argument("OPT does not support version " +
                                         to_string(*parsed.version)));
     }
     this->setInstanceName(makeInstanceName(name, getStrategyName()));
 }
 
-const Name& MINE::getStrategyName() {
-    static Name strategyName("/localhost/nfd/strategy/MINE/%FD%01");
+const Name& OPT::getStrategyName() {
+    static Name strategyName("/localhost/nfd/strategy/OPT/%FD%01");
     return strategyName;
 }
 
-void MINE::afterReceiveInterest(const FaceEndpoint& ingress,
+void OPT::afterReceiveInterest(const FaceEndpoint& ingress,
                                const Interest& interest,
                                const shared_ptr<pit::Entry>& pitEntry)
 {
@@ -78,7 +78,7 @@ void MINE::afterReceiveInterest(const FaceEndpoint& ingress,
 }
 
 void
-MINE::beforeSatisfyInterest(const shared_ptr<pit::Entry>& pitEntry,
+OPT::beforeSatisfyInterest(const shared_ptr<pit::Entry>& pitEntry,
                         const FaceEndpoint& ingress, const Data& data) {
 
     // NFD_LOG_DEBUG("beforeSatisfyInterest pitEntry=" << pitEntry->getName()
@@ -114,7 +114,7 @@ MINE::beforeSatisfyInterest(const shared_ptr<pit::Entry>& pitEntry,
 
 
 void
-MINE::afterContentStoreHit(const shared_ptr<pit::Entry>& pitEntry,
+OPT::afterContentStoreHit(const shared_ptr<pit::Entry>& pitEntry,
                                const FaceEndpoint& ingress, const Data& data)
 {
     // NFD_LOG_DEBUG("afterContentStoreHit pitEntry=" << pitEntry->getName()
@@ -125,7 +125,7 @@ MINE::afterContentStoreHit(const shared_ptr<pit::Entry>& pitEntry,
 }
 
 void
-MINE::afterReceiveData(const shared_ptr<pit::Entry>& pitEntry,
+OPT::afterReceiveData(const shared_ptr<pit::Entry>& pitEntry,
                            const FaceEndpoint& ingress, const Data& data)
 {
   	this->beforeSatisfyInterest(pitEntry, ingress, data);
@@ -136,7 +136,7 @@ MINE::afterReceiveData(const shared_ptr<pit::Entry>& pitEntry,
 }
 
 bool 
-MINE::isProducer(ns3::Ptr<ns3::Node> node)
+OPT::isProducer(ns3::Ptr<ns3::Node> node)
 {
     if (node->GetNApplications() == 0) {
         return false;
@@ -152,7 +152,7 @@ MINE::isProducer(ns3::Ptr<ns3::Node> node)
 }
 
 std::set<ns3::Ptr<ns3::Node>>
-MINE::getContentSources(const Interest &interest)
+OPT::getContentSources(const Interest &interest)
 {
     std::set<ns3::Ptr<ns3::Node>> sources;
     for (auto &node : m_nodes)
@@ -189,7 +189,7 @@ MINE::getContentSources(const Interest &interest)
 }
 
 std::set<Face*>
-MINE::getCandidateForwarders(const fib::NextHopList &nexthops, ns3::Ptr<ns3::Node> curNode, std::set<ns3::Ptr<ns3::Node>> srcNodes)
+OPT::getCandidateForwarders(const fib::NextHopList &nexthops, ns3::Ptr<ns3::Node> curNode, std::set<ns3::Ptr<ns3::Node>> srcNodes)
 {
     std::set<Face*> inRegionSrcs;
     std::set<Face*> candidateForwarders;
@@ -227,7 +227,7 @@ MINE::getCandidateForwarders(const fib::NextHopList &nexthops, ns3::Ptr<ns3::Nod
 }
 
 Face*
-MINE::selectFIB(ns3::Ptr<ns3::Node> localNode, const Interest &interest, std::set<Face*> candidateForwarders, const fib::Entry &fibEntry)
+OPT::selectFIB(ns3::Ptr<ns3::Node> localNode, const Interest &interest, std::set<Face*> candidateForwarders, const fib::Entry &fibEntry)
 {   
     std::vector<FaceStats> faceList;
     for (auto& face : candidateForwarders) {
@@ -264,8 +264,8 @@ MINE::selectFIB(ns3::Ptr<ns3::Node> localNode, const Interest &interest, std::se
     return it.face;
 }
 
-std::vector<MINE::FaceStats>
-MINE::customNormalize(std::vector<FaceStats>& faceList) {
+std::vector<OPT::FaceStats>
+OPT::customNormalize(std::vector<FaceStats>& faceList) {
     double letSum=0, lapSum=0, srttSum=0;
     std::vector<FaceStats> normalizedFaceList;
     for (const auto& faceStats: faceList) {
@@ -284,8 +284,8 @@ MINE::customNormalize(std::vector<FaceStats>& faceList) {
     return normalizedFaceList;
 }
 
-MINE::FaceStats
-MINE::calculateIdealSolution(std::vector<FaceStats> &faceList) {
+OPT::FaceStats
+OPT::calculateIdealSolution(std::vector<FaceStats> &faceList) {
     FaceStats idealSolution(
         faceList[0].face, // 使用第一个节点作为默认值
         (std::max_element(faceList.begin(), faceList.end(), [](const auto &a, const auto &b)
@@ -301,8 +301,8 @@ MINE::calculateIdealSolution(std::vector<FaceStats> &faceList) {
     return idealSolution;
 }
 
-MINE::FaceStats
-MINE::calculateNegativeIdealSolution(std::vector<FaceStats> &faceList) {
+OPT::FaceStats
+OPT::calculateNegativeIdealSolution(std::vector<FaceStats> &faceList) {
     FaceStats negativeIdealSolution(
         faceList[0].face, // 使用第一个节点作为默认值
         (std::min_element(faceList.begin(), faceList.end(), [](const auto &a, const auto &b)
@@ -319,7 +319,7 @@ MINE::calculateNegativeIdealSolution(std::vector<FaceStats> &faceList) {
 }
 
 double
-MINE::calculateCloseness(const MINE::FaceStats &entry, const MINE::FaceStats &idealSolution, const MINE::FaceStats &negativeIdealSolution)
+OPT::calculateCloseness(const OPT::FaceStats &entry, const OPT::FaceStats &idealSolution, const OPT::FaceStats &negativeIdealSolution)
 {
     double distanceIdealDeviation = entry.distance - idealSolution.distance;
     double relativeVelIdealDeviation = entry.sisr - idealSolution.sisr;
@@ -339,8 +339,8 @@ MINE::calculateCloseness(const MINE::FaceStats &entry, const MINE::FaceStats &id
     return closeness;
 }
 
-MINE::FaceStats&
-MINE::getOptimalDecision(std::vector<MINE::FaceStats> &faceList)
+OPT::FaceStats&
+OPT::getOptimalDecision(std::vector<OPT::FaceStats> &faceList)
 {
     std::vector<double> closenessValues;
     FaceStats idealSolution = this->calculateIdealSolution(faceList);
@@ -358,7 +358,7 @@ MINE::getOptimalDecision(std::vector<MINE::FaceStats> &faceList)
 
 
 double
-MINE::calculateDistance(ns3::Ptr<ns3::Node> node1, ns3::Ptr<ns3::Node> node2) {
+OPT::calculateDistance(ns3::Ptr<ns3::Node> node1, ns3::Ptr<ns3::Node> node2) {
     ns3::Ptr<ns3::MobilityModel> mobility1 = node1->GetObject<ns3::MobilityModel>();
     ns3::Ptr<ns3::MobilityModel> mobility2 = node2->GetObject<ns3::MobilityModel>();
     double d = mobility1->GetDistanceFrom(mobility2) + 0.0001;
@@ -366,7 +366,7 @@ MINE::calculateDistance(ns3::Ptr<ns3::Node> node1, ns3::Ptr<ns3::Node> node2) {
 }
 
 double
-MINE::caculateDR(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> receiveNode)
+OPT::caculateDR(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> receiveNode)
 {
     double eculid = this->calculateDistance(sendNode, receiveNode);
     ns3::Ptr<ns3::MobilityModel> mobility = sendNode->GetObject<ns3::MobilityModel>();
@@ -381,7 +381,7 @@ MINE::caculateDR(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> receiveNode)
 }
 
 double
-MINE::calculateLET(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> revNode) {
+OPT::calculateLET(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> revNode) {
     ns3::Ptr<ns3::MobilityModel> mobility1 = sendNode->GetObject<ns3::MobilityModel>();
 	ns3::Ptr<ns3::MobilityModel> mobility2 = revNode->GetObject<ns3::MobilityModel>();
     if (mobility1->GetDistanceFrom(mobility2) >= Rth) {return 0;}
@@ -395,7 +395,7 @@ MINE::calculateLET(ns3::Ptr<ns3::Node> sendNode, ns3::Ptr<ns3::Node> revNode) {
 }
 
 ns3::Ptr<ns3::Node>
-MINE::getNode(MINE& local_strategy) {
+OPT::getNode(OPT& local_strategy) {
     ns3::Ptr<ns3::Node> localNode;
     for (const auto &node : m_nodes)
     {
@@ -403,14 +403,14 @@ MINE::getNode(MINE& local_strategy) {
         ndn::Name prefix("/ustc");
         //此处有个坑：注册nfd时先是采用BestRouteStrategy2策略，其需要先发送set信息，因此需保证此时已经设置完毕策略
         nfd::fw::Strategy &strategy = ndn->getForwarder()->getStrategyChoice().findEffectiveStrategy(prefix);
-        nfd::fw::mine::MINE &MINE_strategy = dynamic_cast<nfd::fw::mine::MINE &>(strategy);
-        if (this == &MINE_strategy)
+        nfd::fw::opt::OPT &OPT_strategy = dynamic_cast<nfd::fw::opt::OPT &>(strategy);
+        if (this == &OPT_strategy)
         {
             return node; 
         }
     }
 }
 
-}  // namespace mine
+}  // namespace opt
 }  // namespace fw
 }  // namespace nfd

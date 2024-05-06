@@ -151,7 +151,7 @@ def resultAndPlot2(scenario, indicators):
             metrics[i].append(metric[i])
             # 将数据写入CSV文件
             labels = ['Accuracy', 'ISR', 'HIR', 'CHR']
-            with open(f'test/results/{scenario}/{labels[i]}.csv', 'w', newline='') as csvfile:
+            with open(f'test/results/{scenario}/{labels[i]}.csv', 'a', newline='') as csvfile:
                 writer = csv.writer(csvfile)
                 if indicators.index(indicator)==0:
                     writer.writerow([scenario, labels[i]])  # 写入表头
@@ -167,24 +167,28 @@ def resultAndPlot2(scenario, indicators):
         plt.grid(True)
     plt.savefig(f'test/figures/{scenario}.png')
 
-STRATEGY_VALUES =['vndn', 'dasb', 'lisic', 'prfs', 'mine']
+STRATEGY_VALUES =['vndn', 'dasb', 'lisic', 'prfs', 'mine', 'ccaf']
 RESULTS_VALUES = ['FIP', 'FDP', 'ISD' , 'ISR', 'HIR', 'HC']
 RATE = 10.0
 TIME = 20.0
 nums =  [num for num in range(40, 201, 20)]
 pairs = [x for x in range(1, 11)]
-popularitys = [round(0.2+ i*0.2,1) for i in range(7)]
+popularitys = [round(0.2 + i*0.1,1) for i in range(14)]
 speeds = [x for x in range(80, 121, 10)]
 # resultAndPlot("1_Num", nums, "Number of Nodes")
 # print("场景1批处理任务完成。")
-# resultAndPlot("2_cpPairs", pairs, "Number of Pairs")
-# print("场景2批处理任务完成。")
 # resultAndPlot("3_Popularity", popularitys, "Popularity")
 # print("场景3批处理任务完成。")
 # resultAndPlot("4_Speed", speeds, "MaxSpeed")
 # print("场景4批处理任务完成。")
+# resultAndPlot("2_cpPairs", pairs, "Number of Pairs")
+# print("场景2批处理任务完成。")
 
 times = [round(0.5 + i*0.5, 1) for i in range(19)]
-pth = [round(0.5 + i*0.05, 2) for i in range(10)]
-resultAndPlot2('5_Time', times)
+pth =[round(0.5 + i*0.05, 2) for i in range(9)]
+# pth =[round(0.5 + i*0.05, 2) for i in range(9)] + [round(0.9 + i*0.01, 2) for i in range(10)] +[0.85]
+# pth=[round(0.6 + i*0.05, 2) for i in range(8)]
+size = [x for x in range(10, 51, 5)]
+# resultAndPlot2('5_Time', times)
 resultAndPlot2('6_Pth', pth)
+# resultAndPlot2('7_CacheSize', size)
