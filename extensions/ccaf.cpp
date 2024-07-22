@@ -22,8 +22,8 @@ namespace nfd {
             NFD_REGISTER_STRATEGY(CCAF);
 
             const double CCAF::Rth(200.0);
-			const double CCAF::Pth(0.5);
-			const double CCAF::T(1.0);
+			const double CCAF::Pth(0.85);
+			const double CCAF::T(1.5);
             const int CCAF::CONTENT_NUM(50);
 			const int CCAF::CACHE_SIZE(20);
 
@@ -71,7 +71,7 @@ namespace nfd {
                     return;
                 }
                 auto egress = FaceEndpoint(*it, 0);
-                NFD_LOG_DEBUG("do Send Interest=" << interest << " from=" << ingress << ", to=" << egress);
+                // NFD_LOG_DEBUG("do Send Interest=" << interest << " from=" << ingress << ", to=" << egress);
                 this->sendInterest(pitEntry, egress, interest);
                 FaceInfo& faceInfo = m_measurements.getOrCreateFaceInfo(fibEntry, interest, egress.face.getId());
 
@@ -130,7 +130,7 @@ namespace nfd {
                 //             << " in=" << ingress << " data=" << data.getName());
 
                 this->sendData(pitEntry, data, ingress);
-                NFD_LOG_DEBUG("do Send Data=" << data.getName() << ", from=" << ingress);
+                // NFD_LOG_DEBUG("do Send Data=" << data.getName() << ", from=" << ingress);
             }
 
             void
@@ -140,7 +140,7 @@ namespace nfd {
                 // NFD_LOG_DEBUG("afterReceiveData pitEntry=" << pitEntry->getName()
                 //             << " in=" << ingress << " data=" << data.getName());
                 this->sendDataToAll(pitEntry, ingress, data);
-                NFD_LOG_DEBUG("do Send Data=" << data.getName() << ", from=" << ingress);
+                // NFD_LOG_DEBUG("do Send Data=" << data.getName() << ", from=" << ingress);
             }
 
             bool
@@ -188,10 +188,10 @@ namespace nfd {
                     }
                     if (time>T) {
                         if ( (isCached && prob>Pth) || (!isCached && prob<Pth) ) {
-                            // cout<<"Cache Prediction True"<<endl;
+                            cout<<"Cache Prediction True"<<endl;
                         }
                         else {
-                            // cout<<"Cache Prediction False"<<endl;
+                            cout<<"Cache Prediction False"<<endl;
                         }
                     }
                 }

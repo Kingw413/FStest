@@ -30,19 +30,6 @@ def runScenario(scenario: str, indicators: list):
             consumers = 0
             producers = indicator
             popularity = 0.7
-        elif (scenario == "2_cpPairs"):
-            trace = "mobility-traces/1_Num/n100.tcl"
-            num = 101
-            candidate_consumers = [x for x in range(1, 100)]
-            maps = {1:[0], 2:[0,6], 3:[0,6,50], 4:[0, 37, 93, 24], 5:[0, 42, 36, 43, 61], 6:[0, 55, 93, 49, 59, 62], 7:[0, 3, 22, 61, 91, 17, 20], 8:[0, 98, 78, 38, 67, 76, 27, 42], 9:[0, 30, 39, 33, 92, 90, 37, 54, 38], 10:[0, 63, 89, 6, 23, 10, 97, 52, 35, 35]}
-            # consumers = [0] + list(np.random.choice(candidate_consumers, indicator-1))
-            consumers = maps[indicator]
-            candidate_producers = [x for x in range(1, 100) if x not in consumers]
-            # producers = [100] + list(np.random.choice(candidate_producers, indicator-1))
-            producers = [100]
-            consumers = ','.join(map(str, consumers))
-            producers = ','.join(map(str, producers))
-            popularity = 0.7
         elif (scenario == "3_Popularity"):
             trace = "mobility-traces/1_Num/n100.tcl"
             num = 101
@@ -79,38 +66,33 @@ def runScenario2(scenario : str, indicators : list):
         modify_cpp_file('extensions/ccaf.cpp', scenario, indicator)
         logfile = os.path.join(logfile_folder, f'{indicator}.log')
         delayfile = os.path.join(delayfile_folder, f'{indicator}.log')
-        # if (os.path.exists(logfile) and os.path.exists(delayfile)):
-        #     continue
+        if (os.path.exists(logfile) and os.path.exists(delayfile)):
+            continue
         if scenario == '7_CacheSize':
             command = f'NS_LOG=ndn-cxx.nfd.CCAF:ndn.Producer ./waf --run "ccaf --num=121 --consumers=0 --producers=120 --popularity=0.7 --rate=20.0 --time=20.0 --trace=mobility-traces/1_Num/n120.tcl --delay_log={delayfile} --size={indicator}">{logfile} 2>&1'
             os.system(command)
         else:
-            command = f'NS_LOG=ndn-cxx.nfd.CCAF:ndn.Producer ./waf --run "ccaf --num=81 --consumers=0 --producers=80 --popularity=0.7 --rate=20.0 --time=20.0 --trace=mobility-traces/1_Num/n80.tcl --delay_log={delayfile} --size=20">{logfile} 2>&1'
+            command = f'NS_LOG=ndn-cxx.nfd.CCAF:ndn.Producer ./waf --run "ccaf --num=101 --consumers=0 --producers=100 --popularity=0.7 --rate=20.0 --time=20.0 --trace=mobility-traces/1_Num/n100.tcl --delay_log={delayfile} --size=20">{logfile} 2>&1'
             os.system(command)
 
-STRATEGY_VALUES =['vndn', 'dasb', 'lisic', 'prfs', 'mine', 'ccaf']
+STRATEGY_VALUES =['vndn', 'dasb', 'lisic', 'prfs', 'ccaf']
 RATE = 10.0
 TIME = 20.0
-nums =  [num for num in range(40, 201, 10)]
-pairs = [x for x in range(1, 11)]
-popularitys = [round(0.2 + i*0.1,1) for i in range(14)]
-speeds = [x for x in range(80, 121, 10)]
+nums =  [num for num in range(60, 181, 40)]
+popularitys = [round(0.3 + i*0.3,1) for i in range(4)]
+speeds = [x for x in range(80, 111, 10)]
 
-# runScenario("1_Num", nums)
-# print("场景1批处理任务完成。")
-# runScenario("3_Popularity", popularitys)
-# print("场景3批处理任务完成。")
-# runScenario("4_Speed", speeds)
-# print("场景4批处理任务完成。")
-# runScenario("2_cpPairs", pairs)
-# print("场景2批处理任务完成。")
+runScenario("1_Num", nums)
+print("场景1批处理任务完成。")
+runScenario("3_Popularity", popularitys)
+print("场景3批处理任务完成。")
+runScenario("4_Speed", speeds)
+print("场景4批处理任务完成。")
 
-times = [round(5.5 + i*0.5, 1) for i in range(9)]
-pth =[round(0.5 + i*0.05, 2) for i in range(9)]
-# pth =[round(0.5 + i*0.05, 2) for i in range(9)] + [round(0.9 + i*0.01, 2) for i in range(10)] +[0.85]
-size = [x for x in range(10, 51, 5)]
+
+times = [round(0.5 + i, 1) for i in range(5)]
+pth =[0.4, 0.6, 0.8, 0.9, 0.95]
 runScenario2("6_Pth", pth)
-# runScenario2("7_CacheSize", size)
-# runScenario2("5_Time", times)
+runScenario2("5_Time", times)
 
 os.system('python test/result.py')

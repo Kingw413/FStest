@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+import numpy as np
 import csv
 import matplotlib 
 matplotlib.use('Agg')
@@ -44,7 +45,7 @@ def calMetric(logfile: str, delayfile: str, num, rate, time):
         isr = round(len(delay_list)/rate/time, 5) 
         # hir = round( hit_num/(fip_num+hit_num), 4) 
         hir = round((len(delays)/2 - sat_by_pro_num)/ (len(delays)/2), 4)
-    return [fip, fdp, mean_delay, isr, hir, mean_hc]
+    return [fip, fdp, mean_delay, isr]
 
 def writeResultToFile(scenario:str, indicators:list):
     logs_folder =  'test/logs/' + scenario
@@ -90,17 +91,22 @@ def resultAndPlot(scenario:str, indicators:list, index_label):
         all_data = pd.concat([all_data, csv_data])
     final_results = all_data.groupby(level=0)
 
-    fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(40,10))
+    fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(40,10))
     for (indicator, indicator_data), ax in zip(final_results, axes.flatten()):
         metric_file_name = os.path.join(avg_results_folder, indicator + '.csv')
         print(metric_file_name)
         indicator_data.index = indicators
         indicator_data.to_csv(metric_file_name, index_label=index_label)
 
+        bar_width=0.15
         for col in indicator_data.columns:
-            ax.plot(indicator_data.index, indicator_data[col], 'o-', linewidth=2, label=col)
+            temp_idx = np.arange(len(indicator_data.index))
+            idx = indicator_data.columns.get_loc(col)
+            # ax.plot(indicator_data.index, indicator_data[col], 'o-', linewidth=2, label=col)
+            ax.bar(temp_idx+idx*bar_width, indicator_data[col], width=bar_width, label=col)
         ax.set_title(f"{indicator} vs {index_label}")
-        ax.set_xticks(indicators)
+        # ax.set_xticks(indicators)
+        ax.set_xticks(temp_idx+bar_width*2, indicators)
         ax.set_xlabel(index_label)
         ax.set_ylabel(indicator)
         ax.legend()
@@ -129,16 +135,16 @@ def calMetric2(logfile: str, delayfile : str):
             sat_by_pro_num += 1
     delays = open(delayfile, 'r').readlines()[1:]
     accuracy = round(true_num / (true_num+false_num), 4)
-    isr = round(len(delays)/20/20/2, 4) 
-    hir = round( hit_num/(fip_num+hit_num), 4) 
-    chr = round((len(delays)/2 - sat_by_pro_num)/ (len(delays)/2), 4)
-    return [accuracy, isr, hir, chr]
+    # isr = round(len(delays)/20/20/2, 4) 
+    # hir = round( hit_num/(fip_num+hit_num), 4) 
+    # chr = round((len(delays)/2 - sat_by_pro_num)/ (len(delays)/2), 4)
+    return [accuracy]
 
 def resultAndPlot2(scenario, indicators):
     results_folder =  'test/results/' +scenario
     os.makedirs(results_folder, exist_ok=True)
-    x_data=[]; accu=[]; isr=[]; hir=[]; chr = []
-    metrics = [accu, isr, hir, chr]
+    x_data=[]; accu=[]
+    metrics = [accu]
     plt.figure(figsize=(20, 10))    
     for indicator in indicators:
         logfile = os.path.join(f'test/logs/{scenario}', f'{indicator}.log')
@@ -150,7 +156,7 @@ def resultAndPlot2(scenario, indicators):
         for i in range(len(metrics)):
             metrics[i].append(metric[i])
             # 将数据写入CSV文件
-            labels = ['Accuracy', 'ISR', 'HIR', 'CHR']
+            labels = ['Accuracy']
             with open(f'test/results/{scenario}/{labels[i]}.csv', 'a', newline='') as csvfile:
                 writer = csv.writer(csvfile)
                 if indicators.index(indicator)==0:
@@ -158,7 +164,7 @@ def resultAndPlot2(scenario, indicators):
                 writer.writerow([indicator, metric[i]])  # 写入数据
 
     for i in range(len(metrics)):
-        plt.subplot(2, 2, i+1)
+        # plt.subplot(2, 1, i+1)
         plt.plot(x_data, metrics[i], marker='o', linestyle='-')
         plt.xticks(x_data)
         plt.xlabel(scenario)
@@ -167,28 +173,23 @@ def resultAndPlot2(scenario, indicators):
         plt.grid(True)
     plt.savefig(f'test/figures/{scenario}.png')
 
-STRATEGY_VALUES =['vndn', 'dasb', 'lisic', 'prfs', 'mine', 'ccaf']
-RESULTS_VALUES = ['FIP', 'FDP', 'ISD' , 'ISR', 'HIR', 'HC']
+STRATEGY_VALUES =['vndn', 'dasb', 'lisic', 'prfs', 'ccaf']
+RESULTS_VALUES = ['FIP', 'FDP', 'ISD' , 'ISR']
 RATE = 10.0
 TIME = 20.0
-nums =  [num for num in range(40, 201, 20)]
-pairs = [x for x in range(1, 11)]
-popularitys = [round(0.2 + i*0.1,1) for i in range(14)]
-speeds = [x for x in range(80, 121, 10)]
-# resultAndPlot("1_Num", nums, "Number of Nodes")
-# print("场景1批处理任务完成。")
-# resultAndPlot("3_Popularity", popularitys, "Popularity")
-# print("场景3批处理任务完成。")
-# resultAndPlot("4_Speed", speeds, "MaxSpeed")
-# print("场景4批处理任务完成。")
-# resultAndPlot("2_cpPairs", pairs, "Number of Pairs")
-# print("场景2批处理任务完成。")
+nums =  [num for num in range(60, 181, 40)]
+popularitys = [round(0.3 + i*0.3,1) for i in range(4)]
+speeds = [x for x in range(80, 111, 10)]
 
-times = [round(0.5 + i*0.5, 1) for i in range(19)]
-pth =[round(0.5 + i*0.05, 2) for i in range(9)]
-# pth =[round(0.5 + i*0.05, 2) for i in range(9)] + [round(0.9 + i*0.01, 2) for i in range(10)] +[0.85]
-# pth=[round(0.6 + i*0.05, 2) for i in range(8)]
-size = [x for x in range(10, 51, 5)]
-# resultAndPlot2('5_Time', times)
+resultAndPlot("1_Num", nums, "Number of Nodes")
+print("场景1批处理任务完成。")
+resultAndPlot("3_Popularity", popularitys, "Popularity")
+print("场景3批处理任务完成。")
+resultAndPlot("4_Speed", speeds, "MaxSpeed")
+print("场景4批处理任务完成。")
+
+
+times = [round(0.5 + i, 1) for i in range(5)]
+pth =[0.4, 0.6, 0.8, 0.9, 0.95]
+resultAndPlot2('5_Time', times)
 resultAndPlot2('6_Pth', pth)
-# resultAndPlot2('7_CacheSize', size)
